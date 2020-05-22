@@ -8,21 +8,22 @@
 module Vector where
 
 import Lib
+import Data.Foldable (toList)
 
 data Vector (n :: Nat) a where
-    VNil :: Vector Zero a
-    VCons :: a -> Vector n a -> Vector (Succ n) a
+    VSingle :: a -> Vector 'One a
+    VCons :: a -> Vector n a -> Vector ('Succ n) a
 
 instance Functor (Vector n) where
-    fmap _ VNil = VNil
+    fmap f (VSingle a) = VSingle (f a)
     fmap f (VCons a vs) = VCons (f a) (fmap f vs)
 
 instance Foldable (Vector n) where
-    foldr f z VNil = z
+    foldr f z (VSingle a) = a `f` z
     foldr f z (VCons a vs) = a `f` foldr f z vs
 
 instance Show a => Show (Vector n a) where
-    show VNil         = "VNil"
+    show (VSingle a)  = "VSingle " ++ show a
     show (VCons a as) = "VCons "++ a' ++ " " ++ as'
         where showa = show a
               a' | ' ' `elem` showa = "(" ++ showa ++ ")"
@@ -31,23 +32,30 @@ instance Show a => Show (Vector n a) where
               as' | ' ' `elem` showas = "(" ++ showas ++ ")"
                   | otherwise = showas
 
+showVector :: Show a => Vector n a -> String
+showVector = show . toList
 
-singleton :: a -> Vector One a
-singleton a = VCons a VNil
+size :: Vector n a -> Integer
+size (VSingle _) = 1
+size (VCons _ vs) = 1 + size vs
+
+(.::) :: a -> Vector n a -> Vector ('Succ n) a
+a .:: v = VCons a v
+infixr .::
+
+singleton :: a -> Vector 'One a
+singleton = VSingle
 
 append :: Vector n a -> Vector m a -> Vector (Add n m) a
-append VNil v = v
-append (VCons a rest) vs = VCons a (append rest vs)
+append (VSingle a) vs = a .:: vs
+append (VCons a rest) vs = a .:: append rest vs
 
-vecHead :: Vector (Succ n) a -> a
+vecHead :: Vector n a -> a
+vecHead (VSingle a) = a
 vecHead (VCons a _) = a
-vecTail' :: Vector (Succ n) a -> Vector n a
-vecTail' (VCons _ vs) = vs
-
-vecTail :: Vector n a -> Vector (Dec n) a
-vecTail VNil = VNil
-vecTail v@(VCons _ _) = vecTail' v
+vecTail :: Vector ('Succ n) a -> Vector n a
+vecTail (VCons _ vs) = vs
 
 binOpVec :: (a -> b -> c) -> Vector n a -> Vector n b -> Vector n c
-binOpVec _ VNil _ = VNil
-binOpVec f (VCons a as) (VCons b bs) = VCons (f a b) (binOpVec f as bs)
+binOpVec f (VSingle a) (VSingle b) = (VSingle (f a b))
+binOpVec f (VCons a as) (VCons b bs) = f a b .:: binOpVec f as bs
