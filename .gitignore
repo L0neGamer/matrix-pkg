@@ -2,3 +2,4 @@
 *~
 matrix-pkg.cabal
 stack.yaml*
+*.prof
