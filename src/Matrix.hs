@@ -6,45 +6,62 @@
 {-# LANGUAGE TypeOperators #-}
 
 module Matrix where
-
-import GHC.Generics
-
 -- thanks to https://www.parsonsmatt.org/2017/04/26/basic_type_level_programming_in_haskell.html
 
-
-data Length = Length Int
-
-data Nat = Succ Nat | Zero deriving (Show, Eq)
-
-type family Add n m where
-    Add 'Zero n = n
-    Add ('Succ n) m = 'Succ (Add n m)
-
-data Vector (n :: Nat) a where
-    VNil :: Vector Zero a
-    VCons :: a -> Vector n a -> Vector (Succ n) a
-
-append :: Vector n a -> Vector m a -> Vector (Add n m) a
-append VNil v = v
-append (VCons a rest) vs = VCons a (append rest vs)
-
-binOpVec :: (a -> b -> c) -> Vector n a -> Vector n b -> Vector n c
-binOpVec _ VNil _ = VNil
-binOpVec f (VCons a as) (VCons b bs) = VCons (f a b) (binOpVec f as bs)
+import Vector
+import Lib
 
 type Matrix2 n m a = Vector n (Vector m a)
 -- n=rows, m=cols
 
-applyNTimes :: Integral a => a -> (b -> b) -> b -> b
-applyNTimes i f x
-    | i < 1 = x
-    | otherwise = applyNTimes (i - 1) f (f x)
+singleton :: a -> Matrix2 One One a
+singleton = Vector.singleton . Vector.singleton
 
-constructMatrix n m a = applyNTimes n (VCons row) VNil
-    where row = applyNTimes m (VCons a) VNil
--- squareMatrix2 a = VCons row $ VCons row $ VNil
---     where row = VCons a $ VCons a $ VNil
+-- transpose' :: Matrix2 n m a -> Matrix2 m n a
+-- transpose' m@VNil = VNil
+-- transpose' m@(VCons VNil _) = VNil
+-- transpose' m@(VCons (VCons _ _) _) = transpose m
 
-instance Show a => Show (Vector n a) where
-    show VNil         = "VNil"
-    show (VCons a as) = "VCons (" ++ show a ++ ") (" ++ show as ++ ")"
+empties :: Matrix2 n Zero a
+empties = VNil
+
+transposeHelper :: Vector n a -> Matrix2 n m a -> Matrix2 n (Succ m) a
+transposeHelper v m = binOpVec VCons v m
+
+transpose :: Matrix2 n m a -> Matrix2 m n a
+transpose VNil = VNil
+
+-- transpose :: Matrix2 n m a -> Matrix2 m n a
+
+
+-- transpose :: Matrix2 n m a -> Matrix2 m n a
+-- transpose m@(VCons (VCons a VNil) VNil) = m
+-- transpose m@(VCons v vs) = binOpVec VCons v $ VCons topRow (transpose tails)
+--     where tails = fmap vecTail vs
+--           topRow = fmap vecHead vs
+
+-- applyNTimes :: Integral a => a -> (b -> b) -> b -> b
+-- applyNTimes i f x
+--     | i < 1 = x
+--     | otherwise = applyNTimes (i - 1) f (f x)
+
+appendRow :: Vector m a -> Matrix2 n m a -> Matrix2 (Add n One) m a
+appendRow v m = append m (Vector.singleton v)
+
+appendCol :: Vector n a -> Matrix2 n m a -> Matrix2 n (Add m One) a
+appendCol VNil VNil = VNil
+appendCol (VCons v vs) (VCons m ms) = append (Vector.singleton (append m (Vector.singleton v))) (appendCol vs ms)
+
+squareMatrix2 :: a -> Matrix2 Two Two a
+squareMatrix2 a = VCons row $ VCons row $ VNil
+    where row = VCons a $ Vector.singleton a
+squareMatrix3 :: a -> Matrix2 Three Three a
+squareMatrix3 a = VCons row $ VCons row $ Vector.singleton row
+    where row = VCons a $ VCons a $ Vector.singleton a
+
+binOpMat :: (a -> b -> c) -> Matrix2 n m a -> Matrix2 n m b -> Matrix2 n m c
+binOpMat f a b = binOpVec (binOpVec f) a b
+
+-- multiplyMat :: Num a => Matrix2 n m a -> Matrix2 m o a -> Matrix2 n o a
+-- multiplyMat a b = undefined
+--     where rowHeads = fmap vecHead b
