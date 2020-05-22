@@ -76,3 +76,6 @@ multiplyMat :: Num a => Matrix2 n m a -> Matrix2 m o a -> Matrix2 n o a
 multiplyMat (VSingle vs) b = Vector.singleton $ multVectMat vs $ transpose b
 multiplyMat (VCons v vs) b = multVectMat v transposed .:: multiplyMat vs b
     where transposed = transpose b
+
+(**) :: Num a => Matrix2 n m a -> Matrix2 m o a -> Matrix2 n o a
+m1 ** m2 = multiplyMat m1 m2
