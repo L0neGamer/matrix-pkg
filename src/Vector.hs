@@ -59,3 +59,11 @@ vecTail (VCons _ vs) = vs
 binOpVec :: (a -> b -> c) -> Vector n a -> Vector n b -> Vector n c
 binOpVec f (VSingle a) (VSingle b) = (VSingle (f a b))
 binOpVec f (VCons a as) (VCons b bs) = f a b .:: binOpVec f as bs
+
+setAt :: Integral a => a -> b -> Vector n b -> Vector n b
+setAt 0 b (VSingle _) = VSingle b
+setAt _ _ v@(VSingle _) = v
+setAt 0 b (VCons _ vs) = VCons b vs
+setAt n b vs'@(VCons v vs)
+    | n > 0 = VCons v $ setAt (n - 1) b vs
+    | otherwise = vs'
