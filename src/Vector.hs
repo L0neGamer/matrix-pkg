@@ -11,7 +11,7 @@ import Lib
 import Data.Foldable (toList)
 
 data Vector (n :: Nat) a where
-    VSingle :: a -> Vector 'One a
+    VSingle :: a -> Vector One a
     VCons :: a -> Vector n a -> Vector ('Succ n) a
 
 instance Functor (Vector n) where
@@ -32,6 +32,18 @@ instance Show a => Show (Vector n a) where
               as' | ' ' `elem` showas = "(" ++ showas ++ ")"
                   | otherwise = showas
 
+-- reverse'' :: Vector ('Succ n) a -> Vector m a -> Vector (Add n ('Succ m)) a
+-- -- reverse'' (VSingle a) vs = VCons a vs
+-- reverse'' (VCons v vs) vs' = reverse' vs (VCons v vs')
+
+-- reverse' :: Vector n a -> Vector m a -> Vector (Add n m) a
+-- reverse' (VSingle a) vs = VCons a vs
+-- reverse' vs vs' = reverse'' vs vs'
+
+-- reverse :: Vector n a -> Vector n a
+-- reverse (VSingle a) = VSingle a
+-- reverse (VCons v vs) = reverse' vs (VSingle v)
+
 showVector :: Show a => Vector n a -> String
 showVector = show . toList
 
@@ -43,8 +55,12 @@ size (VCons _ vs) = 1 + size vs
 a .:: v = VCons a v
 infixr .::
 
-singleton :: a -> Vector 'One a
+singleton :: a -> Vector One a
 singleton = VSingle
+
+appendVal :: a -> Vector n a -> Vector ('Succ n) a
+appendVal a (VSingle b) = b .:: singleton a
+appendVal a (VCons b bs) = b .:: appendVal a bs
 
 append :: Vector n a -> Vector m a -> Vector (Add n m) a
 append (VSingle a) vs = a .:: vs
@@ -55,10 +71,12 @@ vecHead (VSingle a) = a
 vecHead (VCons a _) = a
 vecTail :: Vector ('Succ n) a -> Vector n a
 vecTail (VCons _ vs) = vs
+vecSplit :: Vector ('Succ n) a -> (a, Vector n a)
+vecSplit v = (vecHead v, vecTail v)
 
-binOpVec :: (a -> b -> c) -> Vector n a -> Vector n b -> Vector n c
-binOpVec f (VSingle a) (VSingle b) = (VSingle (f a b))
-binOpVec f (VCons a as) (VCons b bs) = f a b .:: binOpVec f as bs
+vecZipWith :: (a -> b -> c) -> Vector n a -> Vector n b -> Vector n c
+vecZipWith f (VSingle a) (VSingle b) = (VSingle (f a b))
+vecZipWith f (VCons a as) (VCons b bs) = f a b .:: vecZipWith f as bs
 
 setAt :: Integral a => a -> b -> Vector n b -> Vector n b
 setAt 0 b (VSingle _) = VSingle b
