@@ -32,13 +32,20 @@ instance Show a => Show (Vector n a) where
               as' | ' ' `elem` showas = "(" ++ showas ++ ")"
                   | otherwise = showas
 
+-- -- reverse'' :: Vector ('Succ n) a -> Vector m a -> Vector ('Succ (Add n m)) a
+-- -- -- reverse'' (VSingle a) vs = VCons a vs
+-- -- reverse'' (VCons v vs) vs' = reverse' vs (VCons v vs')
+
+-- -- reverse' :: Vector n a -> Vector m a -> Vector (Add n m) a
+-- -- reverse' (VSingle a) vs = VCons a vs
+-- -- reverse' vs vs' = reverse'' vs vs'
+
 -- reverse'' :: Vector ('Succ n) a -> Vector m a -> Vector (Add n ('Succ m)) a
--- -- reverse'' (VSingle a) vs = VCons a vs
--- reverse'' (VCons v vs) vs' = reverse' vs (VCons v vs')
+-- reverse'' (VCons a vs) vs' = reverse' vs (a .:: vs')
 
 -- reverse' :: Vector n a -> Vector m a -> Vector (Add n m) a
--- reverse' (VSingle a) vs = VCons a vs
--- reverse' vs vs' = reverse'' vs vs'
+-- reverse' (VSingle a) vs = a .:: vs
+-- reverse' vs@(VCons a _) vs' = reverse'' vs vs'
 
 -- reverse :: Vector n a -> Vector n a
 -- reverse (VSingle a) = VSingle a
