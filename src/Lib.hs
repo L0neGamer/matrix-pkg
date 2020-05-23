@@ -8,7 +8,7 @@
 module Lib where
 
 data Nat = Succ Nat | One deriving (Show, Eq)
-type Two = 'Succ One
+type Two = 'Succ 'One
 type Three = 'Succ Two
 type Four = 'Succ Three
 type Five = 'Succ Four
