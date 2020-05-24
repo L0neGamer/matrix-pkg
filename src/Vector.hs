@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeOperators #-}
+-- {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 
 module Vector where
 
@@ -34,7 +35,11 @@ instance Show a => Show (Vector n a) where
 
 instance Eq a => Eq (Vector n a) where
     v1 == v2 = and $ vecZipWith (==) v1 v2
-    
+
+instance Traversable (Vector n) where
+    traverse f (VSingle a) = VSingle <$> f a
+    traverse f (VCons a vs) = VCons <$> f a <*> traverse f vs
+
 -- -- reverse'' :: Vector ('Succ n) a -> Vector m a -> Vector ('Succ (Add n m)) a
 -- -- -- reverse'' (VSingle a) vs = VCons a vs
 -- -- reverse'' (VCons v vs) vs' = reverse' vs (VCons v vs')
@@ -90,25 +95,28 @@ vecZipWith f (VSingle a) (VSingle b) = (VSingle (f a b))
 vecZipWith f (VCons a as) (VCons b bs) = f a b .:: vecZipWith f as bs
 vecZipWith _ _ _ = error "unreachable pattern in vecZipWith"
 
-setAt :: Integral a => a -> b -> Vector n b -> Vector n b
-setAt 0 b (VSingle _) = VSingle b
-setAt _ _ v@(VSingle _) = v
-setAt 0 b (VCons _ vs) = VCons b vs
-setAt n b vs'@(VCons v vs)
-    | n > 0 = VCons v $ setAt (n - 1) b vs
-    | otherwise = vs'
+setAt :: Integral a => a -> b -> Vector n b -> Maybe (Vector n b)
+setAt 0 b (VSingle _) = Just $ VSingle b
+setAt _ _ (VSingle _) = Nothing
+setAt 0 b (VCons _ vs) = Just $ VCons b vs
+setAt n b (VCons v vs) = setAt (n - 1) b vs >>= Just . VCons v
 
--- drops the item at index i, or the last element 
-dropItem :: Integral a => a -> Vector ('Succ n) b -> Vector n b
-dropItem 0 (VCons _ vs) = vs
-dropItem _ (VCons a (VSingle _)) = VSingle a
-dropItem i (VCons a vs@(VCons _ _)) = VCons a $ dropItem (i-1) vs
+getAt :: Integral a => a -> Vector n b -> Maybe b
+getAt 0 vs = Just $ vecHead vs
+getAt n (VCons _ vs) = getAt (n - 1) vs
+getAt _ _ = Nothing
+
+-- drops the item at index i
+dropItem :: Integral a => a -> Vector ('Succ n) b -> Maybe (Vector n b)
+dropItem 0 (VCons _ vs) = Just vs
+dropItem 1 (VCons a (VSingle _)) = Just $ VSingle a
+dropItem _ (VCons _ (VSingle _)) = Nothing
+dropItem i (VCons a vs@(VCons _ _)) = dropItem (i-1) vs >>= Just . VCons a
 dropItem _ _ = error "unreachable pattern in dropItem"
 
 -- set every item in a vector to a given value
 setVecTo :: a -> Vector n b -> Vector n a
-setVecTo a (VSingle _) = VSingle a
-setVecTo a (VCons _ vs) = VCons a (setVecTo a vs)
+setVecTo a = fmap (\_ -> a)
 
 -- apply a function to every element of the vector except the first,
 --  then call this function again on the rest of the vector
