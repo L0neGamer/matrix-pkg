@@ -18,3 +18,14 @@ type family Add n m where
 
 someFunc :: IO ()
 someFunc = putStrLn "someFunc"
+
+cantorPairing :: Integral a => a -> a -> a
+cantorPairing a b = div ((a + b) * (a + b + 1)) 2 + b
+
+inverseCantorPairing :: Integral a => a -> (a, a)
+inverseCantorPairing a = (w - a + t, a - t)
+    where w = floor ((((sqrt (8 * (fromIntegral a) + 1)) - 1) / 2) :: Double)
+          t = (div (w^(2::Int) + w) 2)
+
+padList :: a -> Int -> [a] -> [a]
+padList a i as = replicate i a ++ as
