@@ -32,6 +32,9 @@ instance Show a => Show (Vector n a) where
               as' | ' ' `elem` showas = "(" ++ showas ++ ")"
                   | otherwise = showas
 
+instance Eq a => Eq (Vector n a) where
+    v1 == v2 = and $ vecZipWith (==) v1 v2
+    
 -- -- reverse'' :: Vector ('Succ n) a -> Vector m a -> Vector ('Succ (Add n m)) a
 -- -- -- reverse'' (VSingle a) vs = VCons a vs
 -- -- reverse'' (VCons v vs) vs' = reverse' vs (VCons v vs')
@@ -78,12 +81,14 @@ vecHead (VSingle a) = a
 vecHead (VCons a _) = a
 vecTail :: Vector ('Succ n) a -> Vector n a
 vecTail (VCons _ vs) = vs
+vecTail _ = error "unreachable pattern in vecTail"
 vecSplit :: Vector ('Succ n) a -> (a, Vector n a)
 vecSplit v = (vecHead v, vecTail v)
 
 vecZipWith :: (a -> b -> c) -> Vector n a -> Vector n b -> Vector n c
 vecZipWith f (VSingle a) (VSingle b) = (VSingle (f a b))
 vecZipWith f (VCons a as) (VCons b bs) = f a b .:: vecZipWith f as bs
+vecZipWith _ _ _ = error "unreachable pattern in vecZipWith"
 
 setAt :: Integral a => a -> b -> Vector n b -> Vector n b
 setAt 0 b (VSingle _) = VSingle b
@@ -92,3 +97,34 @@ setAt 0 b (VCons _ vs) = VCons b vs
 setAt n b vs'@(VCons v vs)
     | n > 0 = VCons v $ setAt (n - 1) b vs
     | otherwise = vs'
+
+-- drops the item at index i, or the last element 
+dropItem :: Integral a => a -> Vector ('Succ n) b -> Vector n b
+dropItem 0 (VCons _ vs) = vs
+dropItem _ (VCons a (VSingle _)) = VSingle a
+dropItem i (VCons a vs@(VCons _ _)) = VCons a $ dropItem (i-1) vs
+dropItem _ _ = error "unreachable pattern in dropItem"
+
+-- set every item in a vector to a given value
+setVecTo :: a -> Vector n b -> Vector n a
+setVecTo a (VSingle _) = VSingle a
+setVecTo a (VCons _ vs) = VCons a (setVecTo a vs)
+
+-- apply a function to every element of the vector except the first,
+--  then call this function again on the rest of the vector
+applyToRest :: (a -> a) -> Vector n a -> Vector n a
+applyToRest _ (VSingle a) = VSingle a
+applyToRest f (VCons a as) = VCons a (applyToRest f $ fmap f as)
+
+-- when given a vector of length n, make it a vector of increasing value
+incrementingVec :: Num b => Vector n a -> Vector n b
+incrementingVec = applyToRest (+1) . setVecTo 0
+
+-- find the dot product between two vectors
+dotProd :: Num a => Vector n a -> Vector n a -> a
+dotProd v1 v2 = sum $ vecZipWith (*) v1 v2
+
+-- find the cross product between two three dimensional vectors
+crossProd :: Num a => Vector Three a -> Vector Three a -> Vector Three a
+crossProd (VCons ax (VCons ay (VSingle az))) (VCons bx (VCons by (VSingle bz))) = VCons (ay*bz-az*by) (VCons (az*bx-ax*bz) (VSingle (ax*by-ay*bx)))
+crossProd _ _ = error "unreachable pattern in crossProd"

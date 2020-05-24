@@ -9,6 +9,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 
+-- module Matrix (Matrix, identity, mapMatrix, det, constructFrom) where
 module Matrix where
 -- thanks to https://www.parsonsmatt.org/2017/04/26/basic_type_level_programming_in_haskell.html
 -- and to https://github.com/janschultecom/idris-examples for more complex examples
@@ -60,61 +61,77 @@ concatCols = vecZipWith append
 concatRows :: Matrix n m a -> Matrix o m a -> Matrix (Add n o) m a
 concatRows = append
 
+dropCol :: Integral a => a -> Matrix n ('Succ m) b -> Matrix n m b
+dropCol a = fmap (dropItem a)
+dropRow :: Integral a => a -> Matrix ('Succ n) m b -> Matrix n m b
+dropRow a = dropItem a
+
+-- drop the ith row and the jth column, or the last of either if out of bounds
+subMatrix :: Integral a => a -> a -> Matrix ('Succ n) ('Succ m) b -> Matrix n m b
+subMatrix i j = dropCol j . dropRow i
+
 -- below are operations on matrices
+-- transpose a nxm matrix to an mxn matrix
 transpose :: Matrix n m a -> Matrix m n a
 transpose (VSingle a) = fmap singleton a
+transpose m@(VCons (VSingle _) _) = singleton $ fmap vecHead m
 transpose (VCons v@(VCons _ _) vs) = vecZipWith VCons v $ VCons topRow (transpose tails)
     where tails = fmap vecTail vs
           topRow = fmap vecHead vs
-transpose m@(VCons (VSingle _) _) = singleton $ fmap vecHead m
 
+-- zip together two equally sized matrices
 matZipWith :: (a -> b -> c) -> Matrix n m a -> Matrix n m b -> Matrix n m c
 matZipWith f a b = vecZipWith (vecZipWith f) a b
 
 -- help from: https://github.com/janschultecom/idris-examples/blob/master/matrixmult.idr#L21
+-- multiplies and sums together a pair of matrices
 multVects :: Num a => Vector m a -> Vector m a -> a
 multVects v1 v2 = sum $ vecZipWith (*) v1 v2
 
+-- helper function to multiply a vector over a matrix
 multVectMat :: Num a => Vector m a -> Matrix n m a -> Vector n a
 multVectMat xs (VSingle vs) = singleton $ multVects xs vs
 multVectMat xs (VCons v vs) = multVects xs v .:: multVectMat xs vs
 
+-- multiply two matrices together
 multiplyMat :: Num a => Matrix n m a -> Matrix m o a -> Matrix n o a
 multiplyMat (VSingle vs) b = singleton $ multVectMat vs $ transpose b
 multiplyMat (VCons v vs) b = multVectMat v transposed .:: multiplyMat vs b
     where transposed = transpose b
 
--- {- 
--- Expected type: Vector o (Matrix m (Add m ('Succ o)) a)
---   Actual type: Vector o (Matrix n (Add ('Succ m) o) a)
--- -}
+-- helper function for finding determinants - alternating sum over a vector
+altSum :: Num a => Vector n a -> a
+altSum (VSingle a) = a
+altSum (VCons a (VSingle b)) = a - b
+altSum (VCons a (VCons b vs)) = (a - b) + altSum vs
 
--- det''' :: Matrix n m a -> Vector n a -> Matrix n ('Succ o) a -> Vector ('Succ o) (Matrix n (Add m ('Succ o)) a)
--- det''' mn vs m@(VCons (VCons _ _) _) = VCons (concatCols mn m) (det'' mn' vs' m')
---     where mn' = appendCol vs mn
---           vs' = fmap vecHead m
---           m' = fmap vecTail m
+-- determinant of a 2x2 matrix
+det2 :: Num a => Matrix Two Two a -> a
+det2 (VCons (VCons a (VSingle b)) (VSingle (VCons c (VSingle d)))) = a*d - b*c
+det2 _ = error "unreachable pattern for det2"
 
--- det'' :: Matrix n m a -> Vector n a -> Matrix n o a -> Vector o (Matrix n (Add m o) a)
--- det'' mn vs m@(VCons (VSingle _) _) = VSingle (concatCols mn m)
--- det'' mn vs m@(VCons (VCons _ _) _) = det''' mn vs m
--- -- det'' mn vs m@(VCons (VCons _ _) _) = VCons (concatCols mn m) (det'' mn' vs' m')
--- --     where mn' = appendCol vs mn
--- --           vs' = fmap vecHead m
--- --           m' = fmap vecTail m
+-- helper for finding the determinant of a square matrix that is at least 3x3
+det' :: Num a => Matrix (Add Three n) (Add Three n) a -> a
+det' m@(VCons topRow _) = altSum multDetAndTop
+    where indexVec = (incrementingVec topRow)
+          matVec = fmap (\col -> subMatrix col (0::Integer) m) indexVec
+          dets = fmap det matVec
+          multDetAndTop = vecZipWith (*) dets topRow
 
--- det' :: Num a => Matrix ('Succ n) ('Succ ('Succ n)) a -> Vector ('Succ n) (Matrix ('Succ n) ('Succ n) a)
--- det' m = VCons (fmap vecTail m) $ det'' (fmap (VSingle . vecHead) m) (fmap (vecHead . vecTail) m) (fmap (vecTail . vecTail) m)
+-- find the determinant for a square matrix
+det :: Num a => Matrix (Add Two n) (Add Two n) a -> a
+det m@(VCons (VCons _ (VSingle _)) _) = det2 m
+det m@(VCons (VCons _ (VCons _ (VSingle _))) _) = det' m
+det m@(VCons (VCons _ (VCons _ (VCons _ _))) _) = det' m
+-- above two lines are virtually identical, just to make compiler happy
 
--- det :: Num a => Matrix n n a -> a
--- det (VSingle (VSingle a)) = a
-
+-- below are some convienience binary operators for matrices
 (*.*) :: Num a => Matrix n m a -> Matrix m o a -> Matrix n o a
-m1 *.* m2 = multiplyMat m1 m2
+(*.*) = multiplyMat
 
 (.*) :: Num a => Matrix n m a -> Matrix n m a -> Matrix n m a
-m1 .* m2 = matZipWith (*) m1 m2
+(.*) = matZipWith (*)
 
 (.+) :: Num a => Matrix n m a -> Matrix n m a -> Matrix n m a
-m1 .+ m2 = matZipWith (+) m1 m2
+(.+) = matZipWith (+)
 
