@@ -9,6 +9,7 @@
 module Vector where
 
 import Lib
+import Data.Maybe (fromJust)
 import Data.Foldable (toList)
 
 data Vector (n :: Nat) a where
@@ -24,14 +25,7 @@ instance Foldable (Vector n) where
     foldr f z (VCons a vs) = a `f` foldr f z vs
 
 instance Show a => Show (Vector n a) where
-    show (VSingle a)  = "VSingle " ++ show a
-    show (VCons a as) = "VCons "++ a' ++ " " ++ as'
-        where showa = show a
-              a' | ' ' `elem` showa = "(" ++ showa ++ ")"
-                 | otherwise = showa
-              showas = show as
-              as' | ' ' `elem` showas = "(" ++ showas ++ ")"
-                  | otherwise = showas
+    show vs = "Vector " ++ show (toList vs)
 
 instance Eq a => Eq (Vector n a) where
     v1 == v2 = and $ vecZipWith (==) v1 v2
@@ -40,47 +34,41 @@ instance Traversable (Vector n) where
     traverse f (VSingle a) = VSingle <$> f a
     traverse f (VCons a vs) = VCons <$> f a <*> traverse f vs
 
--- -- reverse'' :: Vector ('Succ n) a -> Vector m a -> Vector ('Succ (Add n m)) a
--- -- -- reverse'' (VSingle a) vs = VCons a vs
--- -- reverse'' (VCons v vs) vs' = reverse' vs (VCons v vs')
+reverse :: Vector n a -> Vector n a
+reverse vs = fromJust $ fromList (Prelude.reverse (toList vs)) vs
 
--- -- reverse' :: Vector n a -> Vector m a -> Vector (Add n m) a
--- -- reverse' (VSingle a) vs = VCons a vs
--- -- reverse' vs vs' = reverse'' vs vs'
+-- takes a list that has size equal to the given vector, 
+--  and constructs a vector from the list items
+fromList :: [a] -> Vector n b -> Maybe (Vector n a)
+fromList [a] (VSingle _) = Just $ VSingle a
+fromList (a:as) (VCons _ vs) = fromList as vs >>= Just . VCons a
+fromList _ _ = Nothing
 
--- reverse'' :: Vector ('Succ n) a -> Vector m a -> Vector (Add n ('Succ m)) a
--- reverse'' (VCons a vs) vs' = reverse' vs (a .:: vs')
-
--- reverse' :: Vector n a -> Vector m a -> Vector (Add n m) a
--- reverse' (VSingle a) vs = a .:: vs
--- reverse' vs@(VCons a _) vs' = reverse'' vs vs'
-
--- reverse :: Vector n a -> Vector n a
--- reverse (VSingle a) = VSingle a
--- reverse (VCons v vs) = reverse' vs (VSingle v)
-
-showVector :: Show a => Vector n a -> String
-showVector = show . toList
-
+-- get the size of the vector
 size :: Vector n a -> Integer
 size (VSingle _) = 1
 size (VCons _ vs) = 1 + size vs
 
+-- easy constructor for vector concatenation
 (.::) :: a -> Vector n a -> Vector ('Succ n) a
-a .:: v = VCons a v
+(.::) = VCons
 infixr .::
 
+-- for unified construction
 singleton :: a -> Vector One a
 singleton = VSingle
 
+-- adds an item to the end of a vector
 appendVal :: a -> Vector n a -> Vector ('Succ n) a
 appendVal a (VSingle b) = b .:: singleton a
 appendVal a (VCons b bs) = b .:: appendVal a bs
 
+-- adds a vector to the end of a vector
 append :: Vector n a -> Vector m a -> Vector (Add n m) a
 append (VSingle a) vs = a .:: vs
 append (VCons a rest) vs = a .:: append rest vs
 
+-- get parts of a vector
 vecHead :: Vector n a -> a
 vecHead (VSingle a) = a
 vecHead (VCons a _) = a
@@ -90,23 +78,26 @@ vecTail _ = error "unreachable pattern in vecTail"
 vecSplit :: Vector ('Succ n) a -> (a, Vector n a)
 vecSplit v = (vecHead v, vecTail v)
 
+-- zip together two vectors
 vecZipWith :: (a -> b -> c) -> Vector n a -> Vector n b -> Vector n c
 vecZipWith f (VSingle a) (VSingle b) = (VSingle (f a b))
 vecZipWith f (VCons a as) (VCons b bs) = f a b .:: vecZipWith f as bs
 vecZipWith _ _ _ = error "unreachable pattern in vecZipWith"
 
+-- set an item in a vector. if it is out of range, return Nothing
 setAt :: Integral a => a -> b -> Vector n b -> Maybe (Vector n b)
 setAt 0 b (VSingle _) = Just $ VSingle b
 setAt _ _ (VSingle _) = Nothing
 setAt 0 b (VCons _ vs) = Just $ VCons b vs
 setAt n b (VCons v vs) = setAt (n - 1) b vs >>= Just . VCons v
 
+-- get an item in a vector. if it is out of range, return Nothing
 getAt :: Integral a => a -> Vector n b -> Maybe b
 getAt 0 vs = Just $ vecHead vs
 getAt n (VCons _ vs) = getAt (n - 1) vs
 getAt _ _ = Nothing
 
--- drops the item at index i
+-- drops the item at index i. if it is out of range, return Nothing
 dropItem :: Integral a => a -> Vector ('Succ n) b -> Maybe (Vector n b)
 dropItem 0 (VCons _ vs) = Just vs
 dropItem 1 (VCons a (VSingle _)) = Just $ VSingle a
@@ -133,6 +124,7 @@ dotProd :: Num a => Vector n a -> Vector n a -> a
 dotProd v1 v2 = sum $ vecZipWith (*) v1 v2
 
 -- find the cross product between two three dimensional vectors
+-- cheats by just applying the addition as opposed to any other thing
 crossProd :: Num a => Vector Three a -> Vector Three a -> Vector Three a
 crossProd (VCons ax (VCons ay (VSingle az))) (VCons bx (VCons by (VSingle bz))) = VCons (ay*bz-az*by) (VCons (az*bx-ax*bz) (VSingle (ax*by-ay*bx)))
 crossProd _ _ = error "unreachable pattern in crossProd"
