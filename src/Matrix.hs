@@ -16,6 +16,8 @@ module Matrix where
 
 import Vector
 import Lib
+import Data.Maybe (fromJust)
+import Data.Foldable (toList)
 
 type Matrix n m a = Vector n (Vector m a)
 -- n=rows, m=cols
@@ -29,21 +31,23 @@ constructFrom f (VSingle a) bs = singleton $ fmap (f a) bs
 constructFrom f (VCons a as) bs = VCons (fmap (f a) bs) $ constructFrom f as bs
 
 identity :: Num a => Vector n b -> Matrix n n a
-identity (VSingle _) = singleton $ singleton 1
-identity v@(VCons _ vs) = VCons (VCons 1 vs') ms
-    where next = identity vs
-          zeroed@(VCons _ zeroed') = fmap (\_ -> 0) v
-          (VCons (VCons _ vs') ms) = prependRow zeroed $ prependCol zeroed' next
+identity vs = constructFrom (\a b -> fromIntegral $ fromEnum (a == b)) indexVector indexVector
+    where indexVector = (incrementingVec::Vector n b -> Vector n Integer) vs 
 
 mapMatrix :: (a -> b) -> Matrix n m a -> Matrix n m b
 mapMatrix f m = fmap (fmap f) m
 
-showMatrix' :: Show a => Matrix n m a -> String
-showMatrix' (VSingle vs) = showVector vs ++ "\n]"
-showMatrix' (VCons vs vss) = showVector vs ++ ",\n " ++ showMatrix' vss
-
+-- show a matrix (with some prettifying)
 showMatrix :: Show a => Matrix n m a -> String
-showMatrix vec = "[\n " ++ showMatrix' vec
+showMatrix m = '[': foldr (++) "\n]" items''
+    where items = toList $ fmap toList $ mapMatrix show m
+          maxSize = maximum $ maximum $ map (map length) items
+          items' = map (("\n ["++) . init . init . foldr (\a b -> a ++ ", " ++ b) "" . map (\item -> padList ' ' (maxSize - length item) item)) items
+          items'' = map (++"],") (init items') ++ [last items' ++ "]"]
+
+-- convenience function for printing a matrix
+printMatrix :: Show a => Matrix n m a -> IO ()
+printMatrix = putStrLn . showMatrix
 
 -- below are manipulation of matrices
 appendRow :: Vector m a -> Matrix n m a -> Matrix ('Succ n) m a
@@ -61,14 +65,25 @@ concatCols = vecZipWith append
 concatRows :: Matrix n m a -> Matrix o m a -> Matrix (Add n o) m a
 concatRows = append
 
-dropCol :: Integral a => a -> Matrix n ('Succ m) b -> Matrix n m b
-dropCol a = fmap (dropItem a)
-dropRow :: Integral a => a -> Matrix ('Succ n) m b -> Matrix n m b
+dropCol :: Integer -> Matrix n ('Succ m) b -> Maybe (Matrix n m b)
+dropCol a = sequence . fmap (dropItem a)
+dropRow :: Integer -> Matrix ('Succ n) m b -> Maybe (Matrix n m b)
 dropRow a = dropItem a
 
+setAtMatrix :: Integer -> Integer -> a -> Matrix n m a -> Maybe (Matrix n m a)
+setAtMatrix i j a m = getAt i m >>= setAt j a >>= \col' -> setAt i col' m
+
+getAtMatrix :: Integer -> Integer -> Matrix n m a -> Maybe a
+getAtMatrix i j m = getAt i m >>= getAt j
+
 -- drop the ith row and the jth column, or the last of either if out of bounds
-subMatrix :: Integral a => a -> a -> Matrix ('Succ n) ('Succ m) b -> Matrix n m b
-subMatrix i j = dropCol j . dropRow i
+subMatrix :: Integer -> Integer -> Matrix ('Succ n) ('Succ m) b -> Maybe (Matrix n m b)
+subMatrix i j m = dropRow i m >>= dropCol j
+
+trace :: Num a => Matrix n m a -> a
+trace (VCons (VSingle a) _) = a
+trace (VSingle v) = vecHead v
+trace (VCons (VCons a _) m') = a + trace (fromJust $ dropCol 0 m')
 
 -- below are operations on matrices
 -- transpose a nxm matrix to an mxn matrix
@@ -110,12 +125,34 @@ det2 :: Num a => Matrix Two Two a -> a
 det2 (VCons (VCons a (VSingle b)) (VSingle (VCons c (VSingle d)))) = a*d - b*c
 det2 _ = error "unreachable pattern for det2"
 
+matrixOfMinors :: Num a => Matrix (Add Three n) (Add Three n) a -> Matrix (Add Three n) (Add Three n) a
+matrixOfMinors m = mapMatrix (\(i,j) -> det $ fromJust $ subMatrix i j m) positions 
+    where indexVec = incrementingVec m
+          positions = constructFrom (,) indexVec indexVec
+
+checkerboard :: Num a => Matrix n m a -> Matrix n m a
+checkerboard m = fmap (applyToRest negate) $ applyToRest (fmap negate) m
+
+inverseMatrix' :: (Fractional a, Eq a) => Matrix (Add Three n) (Add Three n) a -> Maybe (Matrix (Add Three n) (Add Three n) a)
+inverseMatrix' m
+    | determinant == 0 = Nothing
+    | otherwise = Just $ mapMatrix (/determinant) (checkerboard $ matrixOfMinors m)
+    where determinant = det m
+
+-- thanks to https://www.mathsisfun.com/algebra/matrix-inverse-minors-cofactors-adjugate.html
+inverseMatrix :: (Fractional a, Eq a) => Matrix (Add Two n) (Add Two n) a -> Maybe (Matrix (Add Two n) (Add Two n) a)
+inverseMatrix m@(VCons (VCons a (VSingle b)) (VSingle (VCons c (VSingle d))))
+    | determinant == 0 = Nothing
+    | otherwise = Just $ mapMatrix (/determinant) $ (d .:: singleton (-b)) .:: singleton ((-c) .:: singleton a)
+    where determinant = det m
+inverseMatrix m@(VCons (VCons _ (VCons _ (VSingle _))) _) = inverseMatrix' m
+inverseMatrix m@(VCons (VCons _ (VCons _ (VCons _ _))) _) = inverseMatrix' m
+inverseMatrix _ = error "unreachable pattern for inverseMatrix"
+
 -- helper for finding the determinant of a square matrix that is at least 3x3
 det' :: Num a => Matrix (Add Three n) (Add Three n) a -> a
 det' m@(VCons topRow _) = altSum multDetAndTop
-    where indexVec = (incrementingVec topRow)
-          matVec = fmap (\col -> subMatrix col (0::Integer) m) indexVec
-          dets = fmap det matVec
+    where dets = vecHead (matrixOfMinors m)
           multDetAndTop = vecZipWith (*) dets topRow
 
 -- find the determinant for a square matrix
@@ -134,4 +171,3 @@ det m@(VCons (VCons _ (VCons _ (VCons _ _))) _) = det' m
 
 (.+) :: Num a => Matrix n m a -> Matrix n m a -> Matrix n m a
 (.+) = matZipWith (+)
-
