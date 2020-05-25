@@ -25,8 +25,8 @@ squareMatrix :: a -> Vector n b -> Matrix n n a
 squareMatrix a v = consFrom (\_ _ -> a) v v
 
 consFrom :: (a -> b -> c) -> Vector n a -> Vector m b -> Matrix n m c
-consFrom f (VSingle a) bs  = singleton $ fmap (f a) bs
-consFrom f (VCons a as) bs = VCons (fmap (f a) bs) $ consFrom f as bs
+consFrom f (Single a) bs = singleton $ fmap (f a) bs
+consFrom f (a :+ as) bs  = fmap (f a) bs :+ consFrom f as bs
 
 consFromCoord ::
      (Integer -> Integer -> a) -> Vector n b -> Vector m c -> Matrix n m a
@@ -66,19 +66,19 @@ appendRow :: Vector m a -> Matrix n m a -> Matrix ('Succ n) m a
 appendRow v m = appendVal v m
 
 prependRow :: Vector m a -> Matrix n m a -> Matrix ('Succ n) m a
-prependRow v m = VCons v m
+prependRow v m = v :+ m
 
 appendCol :: Vector n a -> Matrix n m a -> Matrix n ('Succ m) a
 appendCol v m = vecZipWith appendVal v m
 
 prependCol :: Vector n a -> Matrix n m a -> Matrix n ('Succ m) a
-prependCol v m = vecZipWith VCons v m
+prependCol v m = vecZipWith (:+) v m
 
 concatCols :: Matrix n m a -> Matrix n o a -> Matrix n (Add m o) a
-concatCols = vecZipWith append
+concatCols = vecZipWith (+++)
 
 concatRows :: Matrix n m a -> Matrix o m a -> Matrix (Add n o) m a
-concatRows = append
+concatRows = (+++)
 
 dropCol :: Integer -> Matrix n ('Succ m) b -> Maybe (Matrix n m b)
 dropCol a = sequence . fmap (dropItem a)
@@ -98,17 +98,16 @@ subMatrix ::
 subMatrix i j m = dropRow i m >>= dropCol j
 
 trace :: Num a => Matrix n n a -> a
-trace (VSingle (VSingle a))  = a
-trace (VCons (VCons a _) m') = a + trace (fromJust $ dropCol 0 m')
-trace _                      = error "unreachable pattern in trace"
+trace (Single (Single a)) = a
+trace ((a :+ _) :+ m')    = a + trace (fromJust $ dropCol 0 m')
+trace _                   = error "unreachable pattern in trace"
 
 -- below are operations on matrices
 -- transpose a nxm matrix to an mxn matrix
 transpose :: Matrix n m a -> Matrix m n a
-transpose (VSingle a) = fmap singleton a
-transpose m@(VCons (VSingle _) _) = singleton $ fmap vecHead m
-transpose (VCons v@(VCons _ _) vs) =
-  vecZipWith VCons v $ VCons topRow (transpose tails)
+transpose (Single a) = fmap singleton a
+transpose m@((Single _) :+ _) = singleton $ fmap vecHead m
+transpose (v@(_ :+ _) :+ vs) = vecZipWith (:+) v $ topRow :+ (transpose tails)
   where
     tails = fmap vecTail vs
     topRow = fmap vecHead vs
@@ -120,17 +119,17 @@ matZipWith f a b = vecZipWith (vecZipWith f) a b
 -- help from: https://github.com/janschultecom/idris-examples/blob/master/matrixmult.idr#L21
 -- helper function to multiply a vector over a matrix
 multVectMat :: Num a => Vector m a -> Matrix n m a -> Vector n a
-multVectMat xs (VSingle v)  = singleton $ dotProd xs v
-multVectMat xs (VCons v vs) = dotProd xs v .:: multVectMat xs vs
+multVectMat xs (Single v) = singleton $ dotProd xs v
+multVectMat xs (v :+ vs)  = dotProd xs v :+ multVectMat xs vs
 
 -- multiply two matrices together
 multiplyMat :: Num a => Matrix n m a -> Matrix m o a -> Matrix n o a
-multiplyMat (VSingle vs) b = (singleton . multVectMat vs . transpose) b
-multiplyMat (VCons v vs) b = multVectMat v (transpose b) .:: multiplyMat vs b
+multiplyMat (Single vs) b = (singleton . multVectMat vs . transpose) b
+multiplyMat (v :+ vs) b   = multVectMat v (transpose b) :+ multiplyMat vs b
 
 matrixOfMinors :: Num a => Matrix n n a -> Matrix n n a
-matrixOfMinors m@(VSingle _) = m
-matrixOfMinors m@(VCons _ _) =
+matrixOfMinors m@(Single _) = m
+matrixOfMinors m@(_ :+ _) =
   consFromCoord (\i j -> det $ fromJust $ subMatrix i j m) m m
 
 checkerboard :: Num a => Matrix n m a -> Matrix n m a
@@ -141,8 +140,8 @@ cBoardThenMOM = checkerboard . matrixOfMinors
 
 -- thanks to https://www.mathsisfun.com/algebra/matrix-inverse-minors-cofactors-adjugate.html
 inverseMatrix :: (Fractional a, Eq a) => Matrix n n a -> Maybe (Matrix n n a)
-inverseMatrix (VSingle (VSingle 0)) = Nothing
-inverseMatrix (VSingle (VSingle a)) = Just (VSingle (VSingle (recip a)))
+inverseMatrix (Single (Single 0)) = Nothing
+inverseMatrix (Single (Single a)) = Just (Single (Single (recip a)))
 inverseMatrix m
   | determinant == 0 = Nothing
   | otherwise = Just $ transpose $ mapMatrix (/ determinant) (cBoardThenMOM m)
@@ -151,8 +150,8 @@ inverseMatrix m
 
 -- find the determinant for a square matrix
 det :: Num a => Matrix n n a -> a
-det (VSingle (VSingle a)) = a
-det m                     = sum . vecHead $ m ..* (cBoardThenMOM m)
+det (Single (Single a)) = a
+det m                   = sum . vecHead $ m ..* (cBoardThenMOM m)
 
 -- above two lines are virtually identical, just to make compiler happy
 -- below are some convienience binary operators for matrices

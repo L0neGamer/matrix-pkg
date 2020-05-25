@@ -33,9 +33,6 @@ type family Add n m where
   Add 'Zero n = n
   Add ('Succ n) m = 'Succ (Add n m)
 
-someFunc :: IO ()
-someFunc = putStrLn "someFunc"
-
 cantorPairing :: Integral a => a -> a -> a
 cantorPairing a b = div ((a + b) * (a + b + 1)) 2 + b
 
