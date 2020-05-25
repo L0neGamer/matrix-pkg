@@ -53,9 +53,9 @@ fromList (a:as) (_ :+ vs) = fromList as vs >>= Just . (:+) a
 fromList _ _              = Nothing
 
 -- get the size of the vector
-size :: Vector n a -> Integer
-size (Single _) = 1
-size (_ :+ vs)  = 1 + size vs
+size :: Vector n a -> Fin n
+size (Single _) = FZero
+size (_ :+ vs)  = FSucc (size vs)
 
 -- for unified construction
 singleton :: a -> Vector One a
@@ -96,7 +96,16 @@ setAt _ _ (Single _) = Nothing
 setAt 0 b (_ :+ vs)  = Just $ b :+ vs
 setAt n b (v :+ vs)  = setAt (n - 1) b vs >>= Just . (:+) v
 
+replace :: Fin n -> a -> Vector n a -> Vector n a
+replace FZero a (_ :+ vs)                 = a :+ vs
+replace (FSucc FZero) a (b :+ (Single _)) = b :+ Single a
+replace (FSucc fin) a (b :+ vs)           = b :+ replace fin a vs
+
 -- get an item in a vector. if it is out of range, return Nothing
+index :: Fin n -> Vector n a -> a
+index FZero vs            = vecHead vs
+index (FSucc i) (_ :+ vs) = index i vs
+
 getAt :: Integral a => a -> Vector n b -> Maybe b
 getAt 0 vs        = Just $ vecHead vs
 getAt n (_ :+ vs) = getAt (n - 1) vs
