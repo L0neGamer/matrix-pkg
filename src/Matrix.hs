@@ -8,7 +8,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- module Matrix (Matrix, identity, mapMatrix, det, constructFrom) where
+-- module Matrix (Matrix, identity, mapMatrix, det, consFrom) where
 module Matrix where
 
 import           Data.Foldable (toList)
@@ -18,25 +18,25 @@ import           Vector
 
 -- thanks to https://www.parsonsmatt.org/2017/04/26/basic_type_level_programming_in_haskell.html
 -- and to https://github.com/janschultecom/idris-examples for more complex examples
-
 type Matrix n m a = Vector n (Vector m a)
 
 -- below are construction and displaying matrices
 squareMatrix :: a -> Vector n b -> Matrix n n a
-squareMatrix a v = constructFrom (\_ _ -> a) v v
+squareMatrix a v = consFrom (\_ _ -> a) v v
 
-constructFrom :: (a -> b -> c) -> Vector n a -> Vector m b -> Matrix n m c
-constructFrom f (VSingle a) bs = singleton $ fmap (f a) bs
-constructFrom f (VCons a as) bs = VCons (fmap (f a) bs) $ constructFrom f as bs
+consFrom :: (a -> b -> c) -> Vector n a -> Vector m b -> Matrix n m c
+consFrom f (VSingle a) bs  = singleton $ fmap (f a) bs
+consFrom f (VCons a as) bs = VCons (fmap (f a) bs) $ consFrom f as bs
+
+consFromCoord ::
+     (Integer -> Integer -> a) -> Vector n b -> Vector m c -> Matrix n m a
+consFromCoord f as bs = mapMatrix (\(x, y) -> f x y) positions
+  where
+    (indexVecA, indexVecB) = (incrementingVec as, incrementingVec bs)
+    positions = consFrom (,) indexVecA indexVecB
 
 identity :: Num a => Vector n b -> Matrix n n a
-identity vs =
-  constructFrom
-    (\a b -> fromIntegral $ fromEnum (a == b))
-    indexVector
-    indexVector
-  where
-    indexVector = (incrementingVec :: Vector n b -> Vector n Integer) vs
+identity vs = consFromCoord (\a b -> fromIntegral $ fromEnum (a == b)) vs vs
 
 mapMatrix :: (a -> b) -> Matrix n m a -> Matrix n m b
 mapMatrix f m = fmap (fmap f) m
@@ -66,7 +66,7 @@ appendRow :: Vector m a -> Matrix n m a -> Matrix ('Succ n) m a
 appendRow v m = appendVal v m
 
 prependRow :: Vector m a -> Matrix n m a -> Matrix ('Succ n) m a
-prependRow v m = v .:: m
+prependRow v m = VCons v m
 
 appendCol :: Vector n a -> Matrix n m a -> Matrix n ('Succ m) a
 appendCol v m = vecZipWith appendVal v m
@@ -97,10 +97,10 @@ subMatrix ::
      Integer -> Integer -> Matrix ('Succ n) ('Succ m) b -> Maybe (Matrix n m b)
 subMatrix i j m = dropRow i m >>= dropCol j
 
-trace :: Num a => Matrix n m a -> a
-trace (VCons (VSingle a) _)  = a
-trace (VSingle v)            = vecHead v
+trace :: Num a => Matrix n n a -> a
+trace (VSingle (VSingle a))  = a
 trace (VCons (VCons a _) m') = a + trace (fromJust $ dropCol 0 m')
+trace _                      = error "unreachable pattern in trace"
 
 -- below are operations on matrices
 -- transpose a nxm matrix to an mxn matrix
@@ -118,95 +118,49 @@ matZipWith :: (a -> b -> c) -> Matrix n m a -> Matrix n m b -> Matrix n m c
 matZipWith f a b = vecZipWith (vecZipWith f) a b
 
 -- help from: https://github.com/janschultecom/idris-examples/blob/master/matrixmult.idr#L21
--- multiplies and sums together a pair of matrices
-multVects :: Num a => Vector m a -> Vector m a -> a
-multVects v1 v2 = sum $ vecZipWith (*) v1 v2
-
 -- helper function to multiply a vector over a matrix
 multVectMat :: Num a => Vector m a -> Matrix n m a -> Vector n a
-multVectMat xs (VSingle vs) = singleton $ multVects xs vs
-multVectMat xs (VCons v vs) = multVects xs v .:: multVectMat xs vs
+multVectMat xs (VSingle v)  = singleton $ dotProd xs v
+multVectMat xs (VCons v vs) = dotProd xs v .:: multVectMat xs vs
 
 -- multiply two matrices together
 multiplyMat :: Num a => Matrix n m a -> Matrix m o a -> Matrix n o a
-multiplyMat (VSingle vs) b = singleton $ multVectMat vs $ transpose b
-multiplyMat (VCons v vs) b = multVectMat v transposed .:: multiplyMat vs b
-  where
-    transposed = transpose b
+multiplyMat (VSingle vs) b = (singleton . multVectMat vs . transpose) b
+multiplyMat (VCons v vs) b = multVectMat v (transpose b) .:: multiplyMat vs b
 
--- helper function for finding determinants - alternating sum over a vector
-altSum :: Num a => Vector n a -> a
-altSum (VSingle a)            = a
-altSum (VCons a (VSingle b))  = a - b
-altSum (VCons a (VCons b vs)) = (a - b) + altSum vs
-
--- determinant of a 2x2 matrix
-det2 :: Num a => Matrix Two Two a -> a
-det2 (VCons (VCons a (VSingle b)) (VSingle (VCons c (VSingle d)))) =
-  a * d - b * c
-det2 _ = error "unreachable pattern for det2"
-
-matrixOfMinors ::
-     Num a
-  => Matrix (Add Three n) (Add Three n) a
-  -> Matrix (Add Three n) (Add Three n) a
-matrixOfMinors m =
-  mapMatrix (\(i, j) -> det $ fromJust $ subMatrix i j m) positions
-  where
-    indexVec = incrementingVec m
-    positions = constructFrom (,) indexVec indexVec
+matrixOfMinors :: Num a => Matrix n n a -> Matrix n n a
+matrixOfMinors m@(VSingle _) = m
+matrixOfMinors m@(VCons _ _) =
+  consFromCoord (\i j -> det $ fromJust $ subMatrix i j m) m m
 
 checkerboard :: Num a => Matrix n m a -> Matrix n m a
-checkerboard m = fmap (applyToRest negate) $ applyToRest (fmap negate) m
+checkerboard = fmap (applyToRest negate) . applyToRest (fmap negate)
 
-inverseMatrix' ::
-     (Fractional a, Eq a)
-  => Matrix (Add Three n) (Add Three n) a
-  -> Maybe (Matrix (Add Three n) (Add Three n) a)
-inverseMatrix' m
-  | determinant == 0 = Nothing
-  | otherwise =
-    Just $ mapMatrix (/ determinant) (checkerboard $ matrixOfMinors m)
-  where
-    determinant = det m
+cBoardThenMOM :: Num a => Matrix n n a -> Matrix n n a
+cBoardThenMOM = checkerboard . matrixOfMinors
 
 -- thanks to https://www.mathsisfun.com/algebra/matrix-inverse-minors-cofactors-adjugate.html
-inverseMatrix ::
-     (Fractional a, Eq a)
-  => Matrix (Add Two n) (Add Two n) a
-  -> Maybe (Matrix (Add Two n) (Add Two n) a)
-inverseMatrix m@(VCons (VCons a (VSingle b)) (VSingle (VCons c (VSingle d))))
+inverseMatrix :: (Fractional a, Eq a) => Matrix n n a -> Maybe (Matrix n n a)
+inverseMatrix (VSingle (VSingle 0)) = Nothing
+inverseMatrix (VSingle (VSingle a)) = Just (VSingle (VSingle (recip a)))
+inverseMatrix m
   | determinant == 0 = Nothing
-  | otherwise =
-    Just $
-    mapMatrix (/ determinant) $
-    (d .:: singleton (-b)) .:: singleton ((-c) .:: singleton a)
+  | otherwise = Just $ transpose $ mapMatrix (/ determinant) (cBoardThenMOM m)
   where
     determinant = det m
-inverseMatrix m@(VCons (VCons _ (VCons _ (VSingle _))) _) = inverseMatrix' m
-inverseMatrix m@(VCons (VCons _ (VCons _ (VCons _ _))) _) = inverseMatrix' m
-inverseMatrix _ = error "unreachable pattern for inverseMatrix"
-
--- helper for finding the determinant of a square matrix that is at least 3x3
-det' :: Num a => Matrix (Add Three n) (Add Three n) a -> a
-det' m@(VCons topRow _) = altSum multDetAndTop
-  where
-    dets = vecHead (matrixOfMinors m)
-    multDetAndTop = vecZipWith (*) dets topRow
 
 -- find the determinant for a square matrix
-det :: Num a => Matrix (Add Two n) (Add Two n) a -> a
-det m@(VCons (VCons _ (VSingle _)) _)           = det2 m
-det m@(VCons (VCons _ (VCons _ (VSingle _))) _) = det' m
-det m@(VCons (VCons _ (VCons _ (VCons _ _))) _) = det' m
+det :: Num a => Matrix n n a -> a
+det (VSingle (VSingle a)) = a
+det m                     = sum . vecHead $ m ..* (cBoardThenMOM m)
 
 -- above two lines are virtually identical, just to make compiler happy
 -- below are some convienience binary operators for matrices
 (*.*) :: Num a => Matrix n m a -> Matrix m o a -> Matrix n o a
 (*.*) = multiplyMat
 
-(.*) :: Num a => Matrix n m a -> Matrix n m a -> Matrix n m a
-(.*) = matZipWith (*)
+(..*) :: Num a => Matrix n m a -> Matrix n m a -> Matrix n m a
+(..*) = matZipWith (*)
 
-(.+) :: Num a => Matrix n m a -> Matrix n m a -> Matrix n m a
-(.+) = matZipWith (+)
+(..+) :: Num a => Matrix n m a -> Matrix n m a -> Matrix n m a
+(..+) = matZipWith (+)
