@@ -1,9 +1,12 @@
 {-# LANGUAGE DataKinds #-}
+{-# OPTIONS_GHC -Wall                       #-}
+{-# OPTIONS_GHC -Werror=incomplete-patterns #-}
 
 module Main where
 
 import           Data.Foldable (toList)
-import           Data.Maybe
+
+-- import           Data.Maybe
 import           Lib
 import           Matrix
 import           Vector
@@ -18,7 +21,7 @@ v3 :: Vector ('Succ Five) Int
 v3 = 0 :+ v1
 
 iden5 :: Matrix Five Five Int
-iden5 = identity v1
+iden5 = identity
 
 m1 :: Matrix Two Five Int
 m1 = v1 :+ singleton v1
@@ -28,8 +31,8 @@ m2 = consFrom (+) v2 v2
 
 m3 :: Matrix ('Succ Five) ('Succ Five) Int
 m3 =
-  fromJust $ setAtMatrix 1 0 1 $ fromJust $ setAtMatrix 0 0 0 $
-  consFrom cantorPairing v3 v3
+  setAtMatrix (FSucc FZero) FZero 1 $ setAtMatrix FZero FZero 0 $
+  generateMat (\x y -> cantorPairing (finSize x) (finSize y))
 
 m4 :: Matrix Two Two Int
 m4 = (1 :+ singleton 2) :+ singleton (3 :+ singleton 4)
@@ -105,12 +108,12 @@ main
   print $ toList $
     crossProd (1 :+ 0 :+ singleton (0 :: Int)) (0 :+ 1 :+ singleton 0)
   printMatrix m4
-  print $ det m4
+  -- print $ det m4
   printMatrix $ m5
-  printMatrix $ fromJust $ inverseMatrix m5
+  -- printMatrix $ fromJust $ inverseMatrix m5
   printMatrix $ mt123
-  print $ det $ mt123
-  printMatrix $ fromJust $ inverseMatrix $ mt123
+  -- print $ det $ mt123
+  -- printMatrix $ fromJust $ inverseMatrix $ mt123
   printMatrix m6
-  print $ det m6
-  printMatrix $ fromJust $ inverseMatrix m6
+  -- print $ det m6
+  -- printMatrix $ fromJust $ inverseMatrix m6

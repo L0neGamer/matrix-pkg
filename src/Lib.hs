@@ -1,28 +1,42 @@
 {-# LANGUAGE DataKinds              #-}
+{-# LANGUAGE EmptyCase              #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs                  #-}
+{-# LANGUAGE InstanceSigs           #-}
 {-# LANGUAGE KindSignatures         #-}
+{-# LANGUAGE LambdaCase             #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE StandaloneDeriving     #-}
+{-# LANGUAGE TemplateHaskell        #-}
+{-# LANGUAGE TypeApplications       #-}
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
+{-# LANGUAGE TypeInType             #-}
 {-# LANGUAGE TypeOperators          #-}
 {-# LANGUAGE UndecidableInstances   #-}
+{-# OPTIONS_GHC -Wall                       #-}
 
--- {-# RankNTypes #-}
 module Lib where
 
 import           Data.Kind
+import           Data.Singletons
+import           Data.Singletons.TH
 
-data Nat
-  = Succ Nat
-  | Zero
-  deriving (Show, Eq)
+$(singletons
+    [d|
 
-type One = 'Succ 'Zero
+  data Nat = One
+           | Succ Nat
+  |])
 
-type Two = 'Succ One
+deriving instance Show Nat
+
+deriving instance Eq Nat
+
+type Two = 'Succ 'One
 
 type Three = 'Succ Two
 
@@ -33,14 +47,24 @@ type Five = 'Succ Four
 --  look at https://wiki.haskell.org/Type_arithmetic
 -- http://archive.fo/JwMNI
 type family Add n m where
-  Add 'Zero n = n
+  Add 'One n = 'Succ n
   Add ('Succ n) m = 'Succ (Add n m)
 
+singSize :: Sing (n :: Nat) -> Integer
+singSize (SOne)    = 1
+singSize (SSucc s) = 1 + singSize s
+
 data Fin :: Nat -> Type where
-  FZero :: Fin ('Succ n)
+  FZero :: Fin n
   FSucc :: Fin n -> Fin ('Succ n)
 
 deriving instance Show (Fin n)
+
+deriving instance Eq (Fin n)
+
+finSize :: Integral a => Fin n -> a
+finSize FZero     = 1
+finSize (FSucc f) = 1 + finSize f
 
 cantorPairing :: Integral a => a -> a -> a
 cantorPairing a b = div ((a + b) * (a + b + 1)) 2 + b
