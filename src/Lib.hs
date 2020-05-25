@@ -22,7 +22,7 @@
 module Lib where
 
 import           Data.Kind
-import           Data.Singletons
+-- import           Data.Singletons
 import           Data.Singletons.TH
 
 $(singletons

@@ -85,10 +85,7 @@ m6 =
   (singleton (0 :+ 1 :+ singleton 1))
 
 main :: IO ()
-main
-    -- putStrLn $ showVector v1
-    -- print v1
- = do
+main = do
   printMatrix iden5
     -- putStrLn $ showMatrix m1
     -- putStrLn $ showMatrix (multiplyMat m1 iden5)

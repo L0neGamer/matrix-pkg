@@ -36,12 +36,6 @@ consFrom :: (a -> b -> c) -> Vector n a -> Vector m b -> Matrix n m c
 consFrom f (VecSing a) bs = singleton $ fmap (f a) bs
 consFrom f (a :+ as) bs   = fmap (f a) bs :+ consFrom f as bs
 
--- consFromCoord ::
---      (Integer -> Integer -> a) -> Vector n b -> Vector m c -> Matrix n m a
--- consFromCoord f as bs = mapMatrix (\(x, y) -> f x y) positions
---   where
---     (indexVecA, indexVecB) = (incrementingVec as, incrementingVec bs)
---     positions = consFrom (,) indexVecA indexVecB
 identity :: (Num a, SingI n) => Matrix n n a
 identity = generateMat (\a b -> fromIntegral $ fromEnum (a == b))
 
@@ -90,27 +84,15 @@ concatRows = (+++)
 dropCol :: Fin ('Succ m) -> Matrix n ('Succ m) b -> Matrix n m b
 dropCol a = fmap (dropIndex a)
 
--- dropCol :: Integer -> Matrix n ('Succ m) b -> Maybe (Matrix n m b)
--- dropCol a = sequence . fmap (dropItem a)
 dropRow :: Fin ('Succ n) -> Matrix ('Succ n) m b -> Matrix n m b
 dropRow a = dropIndex a
 
--- dropRow :: Integer -> Matrix ('Succ n) m b -> Maybe (Matrix n m b)
--- dropRow a = dropItem a
 setAtMatrix :: Fin n -> Fin m -> a -> Matrix n m a -> Matrix n m a
 setAtMatrix i j a m = replace i (replace j a (index i m)) m
 
--- setAtMatrix :: Integer -> Integer -> a -> Matrix n m a -> Maybe (Matrix n m a)
--- setAtMatrix i j a m = getAt i m >>= setAt j a >>= \col' -> setAt i col' m
 getAtMatrix :: Fin n -> Fin m -> Matrix n m a -> a
 getAtMatrix i j = index j . index i
 
--- getAtMatrix :: Integer -> Integer -> Matrix n m a -> Maybe a
--- getAtMatrix i j m = getAt i m >>= getAt j
--- drop the ith row and the jth column, or the last of either if out of bounds
--- subMatrix ::
---      Integer -> Integer -> Matrix ('Succ n) ('Succ m) b -> Maybe (Matrix n m b)
--- subMatrix i j m = dropRow i m >>= dropCol j
 subMatrix ::
      Fin ('Succ n)
   -> Fin ('Succ m)

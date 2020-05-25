@@ -67,11 +67,6 @@ fromList [a] (VecSing _)  = Just $ VecSing a
 fromList (a:as) (_ :+ vs) = fromList as vs >>= Just . (:+) a
 fromList _ _              = Nothing
 
--- get the size of the vector
-size :: Vector n a -> Fin n
-size (VecSing _) = FZero
-size (_ :+ vs)   = FSucc (size vs)
-
 -- for unified construction
 singleton :: a -> Vector 'One a
 singleton = VecSing
@@ -101,26 +96,6 @@ vecSplit v = (vecHead v, vecTail v)
 vecZipWith :: (a -> b -> c) -> Vector n a -> Vector n b -> Vector n c
 vecZipWith f (VecSing a) (VecSing b) = (VecSing (f a b))
 vecZipWith f (a :+ as) (b :+ bs)     = f a b :+ vecZipWith f as bs
-
--- set an item in a vector. if it is out of range, return Nothing
-setAt :: Integral a => a -> b -> Vector n b -> Maybe (Vector n b)
-setAt 0 b (VecSing _) = Just $ VecSing b
-setAt _ _ (VecSing _) = Nothing
-setAt 0 b (_ :+ vs)   = Just $ b :+ vs
-setAt n b (v :+ vs)   = setAt (n - 1) b vs >>= Just . (:+) v
-
--- get an item in a vector. if it is out of range, return Nothing
-getAt :: Integral a => a -> Vector n b -> Maybe b
-getAt 0 vs        = Just $ vecHead vs
-getAt n (_ :+ vs) = getAt (n - 1) vs
-getAt _ _         = Nothing
-
--- drops the item at index i. if it is out of range, return Nothing
-dropItem :: Integral a => a -> Vector ('Succ n) b -> Maybe (Vector n b)
-dropItem 0 (_ :+ vs)          = Just vs
-dropItem 1 (a :+ (VecSing _)) = Just $ VecSing a
-dropItem _ (_ :+ (VecSing _)) = Nothing
-dropItem i (a :+ vs@(_ :+ _)) = dropItem (i - 1) vs >>= Just . (:+) a
 
 dropIndex :: Fin ('Succ n) -> Vector ('Succ n) a -> Vector n a
 dropIndex FZero (_ :+ vs)                  = vs
