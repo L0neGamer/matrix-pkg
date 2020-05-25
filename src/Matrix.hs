@@ -128,15 +128,15 @@ multiplyMat :: Num a => Matrix n m a -> Matrix m o a -> Matrix n o a
 multiplyMat (VecSing vs) b = (singleton . multVectMat vs . transpose) b
 multiplyMat (v :+ vs) b    = multVectMat v (transpose b) :+ multiplyMat vs b
 
--- matrixOfMinors :: (Num a, SingI ('Succ n), SingI n) => Matrix ('Succ n) ('Succ n) a -> Matrix ('Succ n) ('Succ n) a
--- matrixOfMinors ((a :+ VecSing b) :+ (VecSing (c :+ VecSing d))) = ((d :+ VecSing c) :+ (VecSing (b :+ VecSing a)))
--- matrixOfMinors m@(_ :+ (_ :+ _)) = mapMatrix det $ generateMat (\i j -> subMatrix i j m)
 checkerboard :: Num a => Matrix n m a -> Matrix n m a
 checkerboard = fmap (applyToRest negate) . applyToRest (fmap negate)
 
--- cBoardThenMOM :: (Num a, SingI ('Succ n), SingI n) => Matrix ('Succ n) ('Succ n) a -> Matrix ('Succ n) ('Succ n) a
+-- matrixOfMinors :: (Num a, SingI ('Succ n)) => Matrix ('Succ n) ('Succ n) a -> Matrix ('Succ n) ('Succ n) a
+-- matrixOfMinors ((a :+ VecSing b) :+ (VecSing (c :+ VecSing d))) = ((d :+ VecSing c) :+ (VecSing (b :+ VecSing a)))
+-- matrixOfMinors m@(_ :+ (_ :+ _)) = mapMatrix det $ generateMat (\i j -> subMatrix i j m)
+-- cBoardThenMOM :: (Num a, SingI n) => Matrix ('Succ n) ('Succ n) a -> Matrix ('Succ n) ('Succ n) a
 -- cBoardThenMOM = checkerboard . matrixOfMinors
--- thanks to https://www.mathsisfun.com/algebra/matrix-inverse-minors-cofactors-adjugate.html
+-- -- thanks to https://www.mathsisfun.com/algebra/matrix-inverse-minors-cofactors-adjugate.html
 -- inverseMatrix :: (Fractional a, Eq a, SingI n, SingI ('Succ n)) => Matrix ('Succ n) ('Succ n) a -> Maybe (Matrix ('Succ n) ('Succ n) a)
 -- -- inverseMatrix (VecSing (VecSing 0)) = Nothing
 -- -- inverseMatrix (VecSing (VecSing a)) = Just (VecSing (VecSing (recip a)))
@@ -145,10 +145,10 @@ checkerboard = fmap (applyToRest negate) . applyToRest (fmap negate)
 --   | otherwise = Just $ transpose $ mapMatrix (/ determinant) (cBoardThenMOM m)
 --   where
 --     determinant = det m
--- find the determinant for a square matrix
--- det :: (Num a, SingI ('Succ n), SingI n) => Matrix ('Succ n) ('Succ n) a -> a
+-- -- find the determinant for a square matrix
+-- det :: (Num a) => Matrix ('Succ n) ('Succ n) a -> a
 -- det ((a :+ VecSing b) :+ (VecSing (c :+ VecSing d))) = a*d - b*c
--- det m@(_ :+ (_ :+ _))                     = sum . vecHead $ m ..* (cBoardThenMOM m)
+-- det m@(_ :+ (_ :+ _))                     = sum $ vecHead m .* (fmap det $ generate_ sing (\col -> subMatrix FZero col m))
 -- above two lines are virtually identical, just to make compiler happy
 -- below are some convienience binary operators for matrices
 (*.*) :: Num a => Matrix n m a -> Matrix m o a -> Matrix n o a

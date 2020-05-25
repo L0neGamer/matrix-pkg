@@ -11,30 +11,30 @@ import           Lib
 import           Matrix
 import           Vector
 
-v1 :: Vector Five Int
+v1 :: Vector Five Integer
 v1 = 1 :+ 2 :+ 3 :+ 4 :+ singleton 5
 
-v2 :: Vector Two Int
+v2 :: Vector Two Integer
 v2 = 1 :+ singleton 2
 
-v3 :: Vector ('Succ Five) Int
+v3 :: Vector ('Succ Five) Integer
 v3 = 0 :+ v1
 
-iden5 :: Matrix Five Five Int
+iden5 :: Matrix Five Five Integer
 iden5 = identity
 
-m1 :: Matrix Two Five Int
+m1 :: Matrix Two Five Integer
 m1 = v1 :+ singleton v1
 
-m2 :: Matrix Two Two Int
+m2 :: Matrix Two Two Integer
 m2 = consFrom (+) v2 v2
 
-m3 :: Matrix ('Succ Five) ('Succ Five) Int
+m3 :: Matrix ('Succ Five) ('Succ Five) Integer
 m3 =
   setAtMatrix (FSucc FZero) FZero 1 $ setAtMatrix FZero FZero 0 $
   generateMat (\x y -> cantorPairing (finSize x) (finSize y))
 
-m4 :: Matrix Two Two Int
+m4 :: Matrix Two Two Integer
 m4 = (1 :+ singleton 2) :+ singleton (3 :+ singleton 4)
 
 m5 :: Matrix Two Two Double
@@ -101,9 +101,9 @@ main = do
   printMatrix $ translation2Ex *.* rotation2Ex *.* scale2Ex *.*
     (rotation2 (-pi / 2))
   print $ v1 `dotProd` v1
-  print $ (1 :+ singleton (-1)) `dotProd` (1 :+ singleton (1 :: Int))
+  print $ (1 :+ singleton (-1)) `dotProd` (1 :+ singleton (1 :: Integer))
   print $ toList $
-    crossProd (1 :+ 0 :+ singleton (0 :: Int)) (0 :+ 1 :+ singleton 0)
+    crossProd (1 :+ 0 :+ singleton (0 :: Integer)) (0 :+ 1 :+ singleton 0)
   printMatrix m4
   -- print $ det m4
   printMatrix $ m5
