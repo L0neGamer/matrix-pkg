@@ -34,6 +34,14 @@ instance Traversable (Vector n) where
   traverse f (VSingle a)  = VSingle <$> f a
   traverse f (VCons a vs) = VCons <$> f a <*> traverse f vs
 
+instance Ord a => Ord (Vector n a) where
+  (VSingle a) <= (VSingle b) = a <= b
+  (VCons a as) <= (VCons b bs)
+    | a < b = True
+    | a > b = False
+    | otherwise = as <= bs
+  _ <= _ = error "unreachable pattern in vector comparison"
+
 reverse :: Vector n a -> Vector n a
 reverse vs = fromJust $ fromList (Prelude.reverse (toList vs)) vs
 
@@ -134,3 +142,6 @@ crossProd (VCons ax (VCons ay (VSingle az))) (VCons bx (VCons by (VSingle bz))) 
     (ay * bz - az * by)
     (VCons (az * bx - ax * bz) (VSingle (ax * by - ay * bx)))
 crossProd _ _ = error "unreachable pattern in crossProd"
+
+(.*) :: Num a => Vector n a -> Vector n a -> Vector n a
+(.*) = vecZipWith (*)
