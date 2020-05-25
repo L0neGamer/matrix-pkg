@@ -24,13 +24,13 @@ m1 :: Matrix Two Five Int
 m1 = v1 .:: singleton v1
 
 m2 :: Matrix Two Two Int
-m2 = constructFrom (+) v2 v2
+m2 = consFrom (+) v2 v2
 
 m3 :: Matrix ('Succ Five) ('Succ Five) Int
 m3 =
   fromJust $
   setAtMatrix 1 0 1 $
-  fromJust $ setAtMatrix 0 0 0 $ constructFrom cantorPairing v3 v3
+  fromJust $ setAtMatrix 0 0 0 $ consFrom cantorPairing v3 v3
 
 m4 :: Matrix Two Two Int
 m4 = (1 .:: singleton 2) .:: singleton (3 .:: singleton 4)
@@ -77,6 +77,11 @@ rotation2Ex = rotation2 (pi / 2)
 mt123 :: Matrix Four Four Double
 mt123 = translate3 1 2 3
 
+m6 :: Matrix Three Three Double
+m6 =
+  (3 .:: 0 .:: singleton 2) .:: (2 .:: 0 .:: singleton (-2)) .::
+  (singleton (0 .:: 1 .:: singleton 1))
+
 main :: IO ()
 main
     -- putStrLn $ showVector v1
@@ -86,7 +91,7 @@ main
     -- putStrLn $ showMatrix m1
     -- putStrLn $ showMatrix (multiplyMat m1 iden5)
     -- putStrLn $ showMatrix (multiplyMat m1 (transpose m1))
-    -- putStrLn $ showMatrix (constructFrom (*) v1 v1)
+    -- putStrLn $ showMatrix (consFrom (*) v1 v1)
     -- putStrLn $ showMatrix m2
   printMatrix translation3Ex
   printMatrix $
@@ -109,3 +114,6 @@ main
   printMatrix $ mt123
   print $ det $ mt123
   printMatrix $ fromJust $ inverseMatrix $ mt123
+  printMatrix m6
+  print $ det m6
+  printMatrix $ fromJust $ inverseMatrix m6
