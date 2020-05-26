@@ -25,12 +25,22 @@ type Matrix n m a = Vector n (Vector m a)
 squareMatrix :: a -> Vector n b -> Matrix n n a
 squareMatrix a v = consFrom (\_ _ -> a) v v
 
-generateMat_ :: (SingI m) => Sing n -> (Fin n -> Fin m -> a) -> Matrix n m a
-generateMat_ SOne f       = VecSing (generate (f FZero))
-generateMat_ (SSucc ss) f = generate (f FZero) :+ generateMat_ ss (f . FSucc)
+-- generate_ :: Sing n -> (Fin n -> a) -> Vector n a
+-- generate_ SOne f       = VecSing (f FZero)
+-- generate_ (SSucc ss) f = f FZero :+ generate_ ss (f . FSucc)
+-- generate :: SingI n => (Fin n -> a) -> Vector n a
+-- generate = generate_ sing
+generateMat__ :: Sing n -> Sing m -> (Fin n -> Fin m -> a) -> Matrix n m a
+-- generateMat__ SOne SOne f = VecSing (VecSing (f FZero FZero))
+generateMat__ SOne sm f = VecSing (generate_ sm (f FZero))
+generateMat__ (SSucc sn) sm f =
+  (generate_ sm (f FZero)) :+ generateMat__ sn sm (\a -> f (FSucc a))
 
+-- generateMat_ :: (SingI m) => Sing n -> (Fin n -> Fin m -> a) -> Matrix n m a
+-- generateMat_ SOne f       = VecSing (generate (f FZero))
+-- generateMat_ (SSucc ss) f = generate (f FZero) :+ generateMat_ ss (f . FSucc)
 generateMat :: (SingI n, SingI m) => (Fin n -> Fin m -> a) -> Matrix n m a
-generateMat = generateMat_ sing
+generateMat = generateMat__ sing sing
 
 consFrom :: (a -> b -> c) -> Vector n a -> Vector m b -> Matrix n m c
 consFrom f (VecSing a) bs = singleton $ fmap (f a) bs
@@ -132,42 +142,29 @@ multiplyMat (v :+ vs) b    = multVectMat v (transpose b) :+ multiplyMat vs b
 checkerboard :: Num a => Matrix n m a -> Matrix n m a
 checkerboard = fmap (applyToRest negate) . applyToRest (fmap negate)
 
--- matrixOfMinors' ::
---      (Num a)
---   => Sing n -> Matrix n n a
---   -> Matrix n n a
--- matrixOfMinors' SOne m = (VecSing . VecSing . det) m
--- matrixOfMinors' s@(SSucc s') m = mapMatrix (det' s') $ generateMat_ s (\i j -> subMatrix i j m)
+matrixOfMinors' :: (Num a) => Sing n -> Matrix n n a -> Matrix n n a
+matrixOfMinors' SOne m = (VecSing . VecSing . det) m
+matrixOfMinors' s@(SSucc s') m =
+  mapMatrix (det' s') $ generateMat__ s s (\i j -> subMatrix i j m)
 
-matrixOfMinors ::
-     (Num a, SingI n)
-  => Matrix ('Succ n) ('Succ n) a
-  -> Matrix ('Succ n) ('Succ n) a
-matrixOfMinors m = mapMatrix det $ generateMat (\i j -> subMatrix i j m)
+matrixOfMinors :: (Num a, SingI n) => Matrix n n a -> Matrix n n a
+matrixOfMinors = matrixOfMinors' sing
 
 -- -- thanks to https://www.mathsisfun.com/algebra/matrix-inverse-minors-cofactors-adjugate.html
 inverseMatrix ::
-     (Fractional a, Eq a, SingI n, SingI ('Succ n))
-  => Matrix ('Succ n) ('Succ n) a
-  -> Maybe (Matrix ('Succ n) ('Succ n) a)
--- inverseMatrix (VecSing (VecSing 0)) = Nothing
--- inverseMatrix (VecSing (VecSing a)) = Just (VecSing (VecSing (recip a)))
+     (Fractional a, Eq a, SingI n) => Matrix n n a -> Maybe (Matrix n n a)
 inverseMatrix m
   | determinant == 0 = Nothing
-  | otherwise =
-    Just $
-    transpose $ mapMatrix (/ determinant) (checkerboard $ matrixOfMinors m)
+  | otherwise = Just $ transpose $ mapMatrix (/ determinant) (cboardThenMOM m)
   where
     determinant = det m
+    cboardThenMOM = checkerboard . matrixOfMinors
 
 -- -- find the determinant for a square matrix
-det' :: (Num a) => Sing n -> Matrix n n a -> a
--- det' (SOne) ((a :+ VecSing b) :+ (VecSing (c :+ VecSing d))) = a*d - b*c
+det' :: Num a => Sing n -> Matrix n n a -> a
 det' SOne (VecSing (VecSing a)) = a
-det' s@(SSucc s') m@(_ :+ _) =
-  sum $
-  vecHead (checkerboard m) .*
-  (fmap (det' s') $ generate_ s (\col -> subMatrix FZero col m))
+det' s@(SSucc _) m@(_ :+ _) =
+  sum . vecHead $ m ..* (checkerboard . (matrixOfMinors' s)) m
 
 det :: (Num a, SingI n) => Matrix n n a -> a
 det = det' sing
