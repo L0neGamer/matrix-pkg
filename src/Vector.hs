@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleInstances    #-}
 {-# OPTIONS_GHC -Wall                       #-}
 
 module Vector where
@@ -41,6 +42,22 @@ instance Ord a => Ord (Vector n a) where
     | a < b = True
     | a > b = False
     | otherwise = as <= bs
+
+-- https://stackoverflow.com/questions/49206636/how-to-make-fixed-length-vectors-instance-of-applicative
+instance Applicative (Vector 'One) where
+  pure = VecSing
+  (VecSing f) <*> (VecSing a) = VecSing (f a)
+
+instance Applicative (Vector n) => Applicative (Vector ('Succ n)) where
+  pure a = a :+ pure a
+  (f :+ fs) <*> (a :+ as) = f a :+ (fs <*> as)
+
+-- https://stackoverflow.com/questions/5802628/monad-instance-of-a-number-parameterised-vector
+instance Monad (Vector 'One) where
+  (VecSing a) >>= f = f a
+
+instance Monad (Vector n) => Monad (Vector ('Succ n)) where
+  (a :+ as) >>= f = vecHead (f a) :+ (as >>= vecTail . f)
 
 replicate' :: Sing n -> a -> Vector n a
 replicate' SOne a      = VecSing a
