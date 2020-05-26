@@ -100,9 +100,10 @@ subMatrix ::
   -> Matrix n m b
 subMatrix i j = dropCol j . dropRow i
 
--- trace :: (Num a, SingI n) => Matrix n n a -> a
--- trace (VecSing (VecSing a)) = a
--- trace m@((a :+ _) :+ _)     = a + trace (subMatrix FZero FZero m)
+trace :: (Num a) => Matrix n n a -> a
+trace (VecSing (VecSing a)) = a
+trace m@((a :+ _) :+ _)     = a + trace (subMatrix FZero FZero m)
+
 -- below are operations on matrices
 -- transpose a nxm matrix to an mxn matrix
 transpose :: Matrix n m a -> Matrix m n a
@@ -131,24 +132,46 @@ multiplyMat (v :+ vs) b    = multVectMat v (transpose b) :+ multiplyMat vs b
 checkerboard :: Num a => Matrix n m a -> Matrix n m a
 checkerboard = fmap (applyToRest negate) . applyToRest (fmap negate)
 
--- matrixOfMinors :: (Num a, SingI ('Succ n)) => Matrix ('Succ n) ('Succ n) a -> Matrix ('Succ n) ('Succ n) a
--- matrixOfMinors ((a :+ VecSing b) :+ (VecSing (c :+ VecSing d))) = ((d :+ VecSing c) :+ (VecSing (b :+ VecSing a)))
--- matrixOfMinors m@(_ :+ (_ :+ _)) = mapMatrix det $ generateMat (\i j -> subMatrix i j m)
--- cBoardThenMOM :: (Num a, SingI n) => Matrix ('Succ n) ('Succ n) a -> Matrix ('Succ n) ('Succ n) a
--- cBoardThenMOM = checkerboard . matrixOfMinors
+-- matrixOfMinors' ::
+--      (Num a)
+--   => Sing n -> Matrix n n a
+--   -> Matrix n n a
+-- matrixOfMinors' SOne m = (VecSing . VecSing . det) m
+-- matrixOfMinors' s@(SSucc s') m = mapMatrix (det' s') $ generateMat_ s (\i j -> subMatrix i j m)
+
+matrixOfMinors ::
+     (Num a, SingI n)
+  => Matrix ('Succ n) ('Succ n) a
+  -> Matrix ('Succ n) ('Succ n) a
+matrixOfMinors m = mapMatrix det $ generateMat (\i j -> subMatrix i j m)
+
 -- -- thanks to https://www.mathsisfun.com/algebra/matrix-inverse-minors-cofactors-adjugate.html
--- inverseMatrix :: (Fractional a, Eq a, SingI n, SingI ('Succ n)) => Matrix ('Succ n) ('Succ n) a -> Maybe (Matrix ('Succ n) ('Succ n) a)
--- -- inverseMatrix (VecSing (VecSing 0)) = Nothing
--- -- inverseMatrix (VecSing (VecSing a)) = Just (VecSing (VecSing (recip a)))
--- inverseMatrix m
---   | determinant == 0 = Nothing
---   | otherwise = Just $ transpose $ mapMatrix (/ determinant) (cBoardThenMOM m)
---   where
---     determinant = det m
+inverseMatrix ::
+     (Fractional a, Eq a, SingI n, SingI ('Succ n))
+  => Matrix ('Succ n) ('Succ n) a
+  -> Maybe (Matrix ('Succ n) ('Succ n) a)
+-- inverseMatrix (VecSing (VecSing 0)) = Nothing
+-- inverseMatrix (VecSing (VecSing a)) = Just (VecSing (VecSing (recip a)))
+inverseMatrix m
+  | determinant == 0 = Nothing
+  | otherwise =
+    Just $
+    transpose $ mapMatrix (/ determinant) (checkerboard $ matrixOfMinors m)
+  where
+    determinant = det m
+
 -- -- find the determinant for a square matrix
--- det :: (Num a) => Matrix ('Succ n) ('Succ n) a -> a
--- det ((a :+ VecSing b) :+ (VecSing (c :+ VecSing d))) = a*d - b*c
--- det m@(_ :+ (_ :+ _))                     = sum $ vecHead m .* (fmap det $ generate_ sing (\col -> subMatrix FZero col m))
+det' :: (Num a) => Sing n -> Matrix n n a -> a
+-- det' (SOne) ((a :+ VecSing b) :+ (VecSing (c :+ VecSing d))) = a*d - b*c
+det' SOne (VecSing (VecSing a)) = a
+det' s@(SSucc s') m@(_ :+ _) =
+  sum $
+  vecHead (checkerboard m) .*
+  (fmap (det' s') $ generate_ s (\col -> subMatrix FZero col m))
+
+det :: (Num a, SingI n) => Matrix n n a -> a
+det = det' sing
+
 -- above two lines are virtually identical, just to make compiler happy
 -- below are some convienience binary operators for matrices
 (*.*) :: Num a => Matrix n m a -> Matrix m o a -> Matrix n o a

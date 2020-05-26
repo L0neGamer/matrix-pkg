@@ -79,6 +79,16 @@ type Four = 'Succ Three
 
 type Five = 'Succ Four
 
+type Six = 'Succ Five
+
+type Seven = 'Succ Six
+
+type Eight = 'Succ Seven
+
+type Nine = 'Succ Eight
+
+type Ten = 'Succ Nine
+
 --  look at https://wiki.haskell.org/Type_arithmetic
 -- http://archive.fo/JwMNI
 type family Add n m where

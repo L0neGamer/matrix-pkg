@@ -6,7 +6,7 @@ module Main where
 
 import           Data.Foldable (toList)
 
--- import           Data.Maybe
+import           Data.Maybe
 import           Lib
 import           Matrix
 import           Vector
@@ -105,12 +105,12 @@ main = do
   print $ toList $
     crossProd (1 :+ 0 :+ singleton (0 :: Integer)) (0 :+ 1 :+ singleton 0)
   printMatrix m4
-  -- print $ det m4
+  print $ det m4
   printMatrix $ m5
-  -- printMatrix $ fromJust $ inverseMatrix m5
+  printMatrix $ fromJust $ inverseMatrix m5
   printMatrix $ mt123
-  -- print $ det $ mt123
-  -- printMatrix $ fromJust $ inverseMatrix $ mt123
+  print $ det $ mt123
+  printMatrix $ fromJust $ inverseMatrix $ mt123
   printMatrix m6
-  -- print $ det m6
-  -- printMatrix $ fromJust $ inverseMatrix m6
+  print $ det m6
+  printMatrix $ fromJust $ inverseMatrix m6
