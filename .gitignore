@@ -1,5 +1,4 @@
 .stack-work/
 *~
 matrix-pkg.cabal
-stack.yaml*
 *.prof
