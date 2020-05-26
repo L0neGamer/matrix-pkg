@@ -24,7 +24,7 @@ iden5 :: Matrix Five Five Integer
 iden5 = identity
 
 m1 :: Matrix Two Five Integer
-m1 = v1 :+ singleton v1
+m1 = Mat $ v1 :+ singleton v1
 
 m2 :: Matrix Two Two Integer
 m2 = consFrom (+) v2 v2
@@ -35,30 +35,30 @@ m3 =
   generateMat (\x y -> cantorPairing (finSize x) (finSize y))
 
 m4 :: Matrix Two Two Integer
-m4 = (1 :+ singleton 2) :+ singleton (3 :+ singleton 4)
+m4 = Mat $ (1 :+ singleton 2) :+ singleton (3 :+ singleton 4)
 
 m5 :: Matrix Two Two Double
-m5 = (4 :+ singleton 7) :+ singleton (2 :+ singleton 6)
+m5 = Mat $ (4 :+ singleton 7) :+ singleton (2 :+ singleton 6)
 
 translate3 :: Num a => a -> a -> a -> Matrix Four Four a
 translate3 a b c =
-  (1 :+ 0 :+ 0 :+ singleton a) :+ (0 :+ 1 :+ 0 :+ singleton b) :+
+  Mat $ (1 :+ 0 :+ 0 :+ singleton a) :+ (0 :+ 1 :+ 0 :+ singleton b) :+
   (0 :+ 0 :+ 1 :+ singleton c) :+
   singleton (0 :+ 0 :+ 0 :+ singleton 1)
 
 translate2 :: Num a => a -> a -> Matrix Three Three a
 translate2 a b =
-  (1 :+ 0 :+ singleton a) :+ (0 :+ 1 :+ singleton b) :+
+  Mat $ (1 :+ 0 :+ singleton a) :+ (0 :+ 1 :+ singleton b) :+
   singleton (0 :+ 0 :+ singleton 1)
 
 scale2 :: Num a => a -> a -> Matrix Three Three a
 scale2 a b =
-  (a :+ 0 :+ singleton 0) :+ (0 :+ b :+ singleton 0) :+
+  Mat $ (a :+ 0 :+ singleton 0) :+ (0 :+ b :+ singleton 0) :+
   singleton (0 :+ 0 :+ singleton 1)
 
 rotation2 :: Floating a => a -> Matrix Three Three a
 rotation2 a =
-  (c :+ (-s) :+ singleton 0) :+ (s :+ c :+ singleton 0) :+
+  Mat $ (c :+ (-s) :+ singleton 0) :+ (s :+ c :+ singleton 0) :+
   singleton (0 :+ 0 :+ singleton 1)
   where
     c = cos a
@@ -81,7 +81,7 @@ mt123 = translate3 1 2 3
 
 m6 :: Matrix Three Three Double
 m6 =
-  (3 :+ 0 :+ singleton 2) :+ (2 :+ 0 :+ singleton (-2)) :+
+  Mat $ (3 :+ 0 :+ singleton 2) :+ (2 :+ 0 :+ singleton (-2)) :+
   (singleton (0 :+ 1 :+ singleton 1))
 
 main :: IO ()
@@ -94,10 +94,11 @@ main = do
     -- putStrLn $ showMatrix m2
   printMatrix translation3Ex
   printMatrix $ translation3Ex *.*
-    (transpose $ singleton (0 :+ 0 :+ 0 :+ singleton 1))
-  printMatrix $ scale2Ex *.* (transpose $ singleton (1 :+ 1 :+ singleton 1))
+    (transpose $ Mat $ singleton (0 :+ 0 :+ 0 :+ singleton 1))
+  printMatrix $ scale2Ex *.*
+    (transpose $ Mat $ singleton (1 :+ 1 :+ singleton 1))
   printMatrix $ translation2Ex *.* rotation2Ex *.* scale2Ex *.*
-    (transpose $ singleton (1 :+ 1 :+ singleton 1))
+    (transpose $ Mat $ singleton (1 :+ 1 :+ singleton 1))
   printMatrix $ translation2Ex *.* rotation2Ex *.* scale2Ex *.*
     (rotation2 (-pi / 2))
   print $ v1 `dotProd` v1
