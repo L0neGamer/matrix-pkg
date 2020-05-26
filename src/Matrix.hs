@@ -43,7 +43,7 @@ mapMatrix f = fmap (fmap f)
 
 -- show a matrix (with some prettifying)
 showMatrix :: Show a => Matrix n m a -> String
-showMatrix m = '[' : (concat items'') ++ "\n]"
+showMatrix m = '[' : concat items'' ++ "\n]"
   where
     items = toList $ toList <$> mapMatrix show m
     maxSize = maximum $ maximum $ map (map length) items
