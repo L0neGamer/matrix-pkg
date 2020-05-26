@@ -25,20 +25,11 @@ type Matrix n m a = Vector n (Vector m a)
 squareMatrix :: a -> Vector n b -> Matrix n n a
 squareMatrix a v = consFrom (\_ _ -> a) v v
 
--- generate_ :: Sing n -> (Fin n -> a) -> Vector n a
--- generate_ SOne f       = VecSing (f FZero)
--- generate_ (SSucc ss) f = f FZero :+ generate_ ss (f . FSucc)
--- generate :: SingI n => (Fin n -> a) -> Vector n a
--- generate = generate_ sing
 generateMat__ :: Sing n -> Sing m -> (Fin n -> Fin m -> a) -> Matrix n m a
--- generateMat__ SOne SOne f = VecSing (VecSing (f FZero FZero))
 generateMat__ SOne sm f = VecSing (generate_ sm (f FZero))
 generateMat__ (SSucc sn) sm f =
   (generate_ sm (f FZero)) :+ generateMat__ sn sm (\a -> f (FSucc a))
 
--- generateMat_ :: (SingI m) => Sing n -> (Fin n -> Fin m -> a) -> Matrix n m a
--- generateMat_ SOne f       = VecSing (generate (f FZero))
--- generateMat_ (SSucc ss) f = generate (f FZero) :+ generateMat_ ss (f . FSucc)
 generateMat :: (SingI n, SingI m) => (Fin n -> Fin m -> a) -> Matrix n m a
 generateMat = generateMat__ sing sing
 
