@@ -17,7 +17,7 @@ v1 = 1 :+ 2 :+ 3 :+ 4 :+ singleton 5
 v2 :: Vector Two Integer
 v2 = 1 :+ singleton 2
 
-v3 :: Vector ('Succ Five) Integer
+v3 :: Vector Six Integer
 v3 = 0 :+ v1
 
 iden5 :: Matrix Five Five Integer
@@ -29,7 +29,7 @@ m1 = Mat $ v1 :+ singleton v1
 m2 :: Matrix Two Two Integer
 m2 = consFrom (+) v2 v2
 
-m3 :: Matrix ('Succ Five) ('Succ Five) Integer
+m3 :: Matrix Six Six Integer
 m3 =
   setAtMatrix (FSucc FZero) FZero 1 $ setAtMatrix FZero FZero 0 $
   generateMat (\x y -> cantorPairing (finSize x) (finSize y))

@@ -1,9 +1,10 @@
 {-# LANGUAGE DataKinds            #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE GADTs                #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE FlexibleInstances    #-}
 {-# OPTIONS_GHC -Wall                       #-}
 
 module Vector where
@@ -58,6 +59,46 @@ instance Monad (Vector 'One) where
 
 instance Monad (Vector n) => Monad (Vector ('Succ n)) where
   (a :+ as) >>= f = vecHead (f a) :+ (as >>= vecTail . f)
+
+instance Num a => Num (Vector 'One a) where
+  (+) = vecZipWith (+)
+  (*) = vecZipWith (*)
+  abs = fmap abs
+  signum = fmap signum
+  negate = fmap negate
+  fromInteger = VecSing . fromInteger
+
+instance (Num a, Num (Vector n a)) => Num (Vector ('Succ n) a) where
+  (+) = vecZipWith (+)
+  (*) = vecZipWith (*)
+  abs = fmap abs
+  signum = fmap signum
+  negate = fmap negate
+  fromInteger a = fromInteger a :+ fromInteger a
+
+instance Fractional a => Fractional (Vector 'One a) where
+  recip = fmap recip
+  fromRational = VecSing . fromRational
+
+instance (Fractional a, Fractional (Vector n a)) => Fractional (Vector ('Succ n) a) where
+  recip = fmap recip
+  fromRational a = (fromRational a) :+ fromRational a
+
+instance (Real a, Num (Vector n a)) => Real (Vector n a) where
+  toRational = sum . fmap toRational
+
+instance (Enum a) => Enum (Vector 'One a) where
+  toEnum a = VecSing (toEnum a)
+  fromEnum (VecSing a) = fromEnum a
+
+instance (Enum a, Enum (Vector n a)) => Enum (Vector ('Succ n) a) where
+  toEnum a = toEnum a :+ toEnum a
+  fromEnum (a :+ as) = fromEnum a + fromEnum as
+
+instance (Integral a, Real (Vector n a), Enum (Vector n a)) => Integral (Vector n a) where
+  toInteger = fromIntegral . length
+  quotRem n d = (fmap fst vals, fmap snd vals)
+    where vals = vecZipWith quotRem n d
 
 replicate' :: Sing n -> a -> Vector n a
 replicate' SOne a      = VecSing a

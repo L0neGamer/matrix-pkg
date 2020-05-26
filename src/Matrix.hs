@@ -23,8 +23,59 @@ newtype Matrix n m a =
 instance Functor (Matrix n m) where
   fmap f (Mat v) = Mat $ fmap (fmap f) v
 
+instance Foldable (Matrix n m) where
+  foldr f z (Mat (VecSing vs)) = foldr f z vs
+  foldr f z (Mat (v :+ vs))    = (foldr f (foldr f z (Mat vs)) v)
+
 instance Show a => Show (Matrix n m a) where
   show = showMatrix
+
+instance (Num a, Num (Vector m a)) => Num (Matrix 'One m a) where
+  (+) = matZipWith (+)
+  (*) = matZipWith (*)
+  abs = fmap abs
+  signum = fmap signum
+  negate = fmap negate
+  fromInteger = Mat . VecSing . fromInteger
+
+instance (Num a, Num (Vector m a), Num (Matrix n m a)) =>
+         Num (Matrix ('Succ n) m a) where
+  (+) = matZipWith (+)
+  (*) = matZipWith (*)
+  abs = fmap abs
+  signum = fmap signum
+  negate = fmap negate
+  fromInteger a = fromInteger a >: fromInteger a
+
+instance (Fractional a, Fractional (Vector m a)) =>
+         Fractional (Matrix 'One m a) where
+  recip = fmap recip
+  fromRational = Mat . VecSing . fromRational
+
+instance (Fractional a, Fractional (Vector m a), Fractional (Matrix n m a)) =>
+         Fractional (Matrix ('Succ n) m a) where
+  recip = fmap recip
+  fromRational a = fromRational a >: fromRational a
+
+instance (Real a, Num (Vector m a), Num (Matrix n m a)) =>
+         Real (Matrix n m a) where
+  toRational (Mat vs) = sum $ fmap toRational vs
+
+instance (Enum a, Enum (Vector m a)) => Enum (Matrix 'One m a) where
+  toEnum a = Mat $ VecSing $ toEnum a
+  fromEnum (Mat (VecSing a)) = fromEnum a
+
+instance (Enum a, Enum (Vector m a), Enum (Matrix n m a)) =>
+         Enum (Matrix ('Succ n) m a) where
+  toEnum a = toEnum a >: toEnum a
+  fromEnum (Mat (a :+ as)) = fromEnum a + fromEnum (Mat as)
+
+instance (Integral a, Real (Matrix n m a), Enum (Matrix n m a)) =>
+         Integral (Matrix n m a) where
+  toInteger = fromIntegral . length
+  quotRem n d = (fmap fst vals, fmap snd vals)
+    where
+      vals = matZipWith quotRem n d
 
 toLists :: Matrix n m a -> [[a]]
 toLists (Mat v) = toList $ fmap toList v

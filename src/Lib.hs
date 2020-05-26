@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds              #-}
 {-# LANGUAGE EmptyCase              #-}
+{-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs                  #-}
@@ -92,6 +93,35 @@ type family Add n m where
   Add 'One n = 'Succ n
   Add ('Succ n) m = 'Succ (Add n m)
 
+instance Bounded (Fin 'One) where
+  minBound = FZero
+  maxBound = FZero
+
+instance Bounded (Fin n) => Bounded (Fin ('Succ n)) where
+  minBound = FZero
+  maxBound = FSucc (maxBound)
+
+instance Enum (Fin 'One) where
+  fromEnum = fromIntegral . finSize
+  toEnum 1 = FZero
+  toEnum _ = error "bad argument"
+
+instance (Enum (Fin n)) => Enum (Fin ('Succ n)) where
+  fromEnum = fromIntegral . finSize
+  toEnum 1 = FZero
+  toEnum n
+    | n > 1 = FSucc (toEnum (n - 1))
+    | otherwise = error "bad argument"
+
+-- instance (Enum (Fin n)) => Num (Fin n) where
+--   a + b = toEnum $ (+) (fromEnum a) (fromEnum b)
+--   a * b = toEnum $ (*) (fromEnum a) (fromEnum b)
+--   abs = id
+--   signum = const FZero
+--   negate = id
+--   fromInteger = toEnum . fromIntegral
+-- instance (Enum (Fin n)) => Integral (Fin n) where
+--   toInteger = fromIntegral . fromEnum
 singSize :: Sing (n :: Nat) -> Integer
 singSize SOne      = 1
 singSize (SSucc s) = 1 + singSize s
