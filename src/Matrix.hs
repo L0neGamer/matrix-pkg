@@ -2,10 +2,8 @@
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE GADTs                #-}
-{-# LANGUAGE KindSignatures       #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeOperators        #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wall                       #-}
 
@@ -25,13 +23,13 @@ type Matrix n m a = Vector n (Vector m a)
 squareMatrix :: a -> Vector n b -> Matrix n n a
 squareMatrix a v = consFrom (\_ _ -> a) v v
 
-generateMat__ :: Sing n -> Sing m -> (Fin n -> Fin m -> a) -> Matrix n m a
-generateMat__ SOne sm f = VecSing (generate_ sm (f FZero))
-generateMat__ (SSucc sn) sm f =
-  (generate_ sm (f FZero)) :+ generateMat__ sn sm (\a -> f (FSucc a))
+generateMat' :: Sing n -> Sing m -> (Fin n -> Fin m -> a) -> Matrix n m a
+generateMat' SOne sm f = VecSing (generate' sm (f FZero))
+generateMat' (SSucc sn) sm f =
+  generate' sm (f FZero) :+ generateMat' sn sm (f . FSucc)
 
 generateMat :: (SingI n, SingI m) => (Fin n -> Fin m -> a) -> Matrix n m a
-generateMat = generateMat__ sing sing
+generateMat = generateMat' sing sing
 
 consFrom :: (a -> b -> c) -> Vector n a -> Vector m b -> Matrix n m c
 consFrom f (VecSing a) bs = singleton $ fmap (f a) bs
@@ -41,22 +39,20 @@ identity :: (Num a, SingI n) => Matrix n n a
 identity = generateMat (\a b -> fromIntegral $ fromEnum (a == b))
 
 mapMatrix :: (a -> b) -> Matrix n m a -> Matrix n m b
-mapMatrix f m = fmap (fmap f) m
+mapMatrix f = fmap (fmap f)
 
 -- show a matrix (with some prettifying)
 showMatrix :: Show a => Matrix n m a -> String
 showMatrix m = '[' : foldr (++) "\n]" items''
   where
-    items = toList $ fmap toList $ mapMatrix show m
+    items = toList $ toList <$> mapMatrix show m
     maxSize = maximum $ maximum $ map (map length) items
     items' =
       map
         (("\n [" ++) .
          init .
          init .
-         foldr (\a b -> a ++ ", " ++ b) "" .
-         map (\item -> padList ' ' (maxSize - length item) item))
-        items
+         foldr (\a b -> padList ' ' (maxSize - length a) a ++ ", " ++ b) "" )  items
     items'' = map (++ "],") (init items') ++ [last items' ++ "]"]
 
 -- convenience function for printing a matrix
@@ -65,16 +61,16 @@ printMatrix = putStrLn . showMatrix
 
 -- below are manipulation of matrices
 appendRow :: Vector m a -> Matrix n m a -> Matrix ('Succ n) m a
-appendRow v m = appendVal v m
+appendRow = appendVal
 
 prependRow :: Vector m a -> Matrix n m a -> Matrix ('Succ n) m a
 prependRow v m = v :+ m
 
 appendCol :: Vector n a -> Matrix n m a -> Matrix n ('Succ m) a
-appendCol v m = vecZipWith appendVal v m
+appendCol = vecZipWith appendVal
 
 prependCol :: Vector n a -> Matrix n m a -> Matrix n ('Succ m) a
-prependCol v m = vecZipWith (:+) v m
+prependCol = vecZipWith (:+)
 
 concatCols :: Matrix n m a -> Matrix n o a -> Matrix n (Add m o) a
 concatCols = vecZipWith (+++)
@@ -86,7 +82,7 @@ dropCol :: Fin ('Succ m) -> Matrix n ('Succ m) b -> Matrix n m b
 dropCol a = fmap (dropIndex a)
 
 dropRow :: Fin ('Succ n) -> Matrix ('Succ n) m b -> Matrix n m b
-dropRow a = dropIndex a
+dropRow = dropIndex
 
 setAtMatrix :: Fin n -> Fin m -> a -> Matrix n m a -> Matrix n m a
 setAtMatrix i j a m = replace i (replace j a (index i m)) m
@@ -110,14 +106,14 @@ trace m@((a :+ _) :+ _)     = a + trace (subMatrix FZero FZero m)
 transpose :: Matrix n m a -> Matrix m n a
 transpose (VecSing a) = fmap singleton a
 transpose m@((VecSing _) :+ _) = singleton $ fmap vecHead m
-transpose (v@(_ :+ _) :+ vs) = vecZipWith (:+) v $ topRow :+ (transpose tails)
+transpose (v@(_ :+ _) :+ vs) = vecZipWith (:+) v $ topRow :+ transpose tails
   where
     tails = fmap vecTail vs
     topRow = fmap vecHead vs
 
 -- zip together two equally sized matrices
 matZipWith :: (a -> b -> c) -> Matrix n m a -> Matrix n m b -> Matrix n m c
-matZipWith f a b = vecZipWith (vecZipWith f) a b
+matZipWith f = vecZipWith (vecZipWith f)
 
 -- help from: https://github.com/janschultecom/idris-examples/blob/master/matrixmult.idr#L21
 -- helper function to multiply a vector over a matrix
@@ -136,7 +132,7 @@ checkerboard = fmap (applyToRest negate) . applyToRest (fmap negate)
 matrixOfMinors' :: (Num a) => Sing n -> Matrix n n a -> Matrix n n a
 matrixOfMinors' SOne m = (VecSing . VecSing . det) m
 matrixOfMinors' s@(SSucc s') m =
-  mapMatrix (det' s') $ generateMat__ s s (\i j -> subMatrix i j m)
+  mapMatrix (det' s') $ generateMat' s s (\i j -> subMatrix i j m)
 
 matrixOfMinors :: (Num a, SingI n) => Matrix n n a -> Matrix n n a
 matrixOfMinors = matrixOfMinors' sing
@@ -155,7 +151,7 @@ inverseMatrix m
 det' :: Num a => Sing n -> Matrix n n a -> a
 det' SOne (VecSing (VecSing a)) = a
 det' s@(SSucc _) m@(_ :+ _) =
-  sum . vecHead $ m ..* (checkerboard . (matrixOfMinors' s)) m
+  sum . vecHead $ m ..* (checkerboard . matrixOfMinors' s) m
 
 det :: (Num a, SingI n) => Matrix n n a -> a
 det = det' sing

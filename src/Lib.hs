@@ -4,15 +4,12 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs                  #-}
 {-# LANGUAGE InstanceSigs           #-}
-{-# LANGUAGE KindSignatures         #-}
 {-# LANGUAGE LambdaCase             #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE StandaloneDeriving     #-}
 {-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE TypeApplications       #-}
-{-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE TypeInType             #-}
 {-# LANGUAGE TypeOperators          #-}
@@ -107,7 +104,7 @@ sizeDif' :: Sing n -> Fin n -> Integer
 sizeDif' s f = singSize s - finSize f
 
 sizeDif :: SingI n => Fin n -> Integer
-sizeDif f = sizeDif' sing f
+sizeDif = sizeDif' sing
 
 cantorPairing :: Integral a => a -> a -> a
 cantorPairing a b = div ((a + b) * (a + b + 1)) 2 + b
@@ -115,8 +112,8 @@ cantorPairing a b = div ((a + b) * (a + b + 1)) 2 + b
 inverseCantorPairing :: Integral a => a -> (a, a)
 inverseCantorPairing a = (w - a + t, a - t)
   where
-    w = floor ((((sqrt (8 * (fromIntegral a) + 1)) - 1) / 2) :: Double)
-    t = (div (w ^ (2 :: Int) + w) 2)
+    w = floor (sqrt (8 * fromIntegral a + 1) - 1 / 2 :: Double)
+    t = div (w ^ (2 :: Int) + w) 2
 
 padList :: a -> Int -> [a] -> [a]
 padList a i as = replicate i a ++ as

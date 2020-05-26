@@ -1,6 +1,5 @@
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE GADTs                #-}
-{-# LANGUAGE KindSignatures       #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -43,19 +42,19 @@ instance Ord a => Ord (Vector n a) where
     | a > b = False
     | otherwise = as <= bs
 
-replicate_ :: Sing n -> a -> Vector n a
-replicate_ (SOne) a    = VecSing a
-replicate_ (SSucc n) a = a :+ replicate_ n a
+replicate' :: Sing n -> a -> Vector n a
+replicate' SOne a    = VecSing a
+replicate' (SSucc n) a = a :+ replicate' n a
 
 replicate :: SingI n => a -> Vector n a
-replicate = replicate_ sing
+replicate = replicate' sing
 
-generate_ :: Sing n -> (Fin n -> a) -> Vector n a
-generate_ SOne f       = VecSing (f FZero)
-generate_ (SSucc ss) f = f FZero :+ generate_ ss (f . FSucc)
+generate' :: Sing n -> (Fin n -> a) -> Vector n a
+generate' SOne f       = VecSing (f FZero)
+generate' (SSucc ss) f = f FZero :+ generate' ss (f . FSucc)
 
 generate :: SingI n => (Fin n -> a) -> Vector n a
-generate = generate_ sing
+generate = generate' sing
 
 reverse :: Vector n a -> Vector n a
 reverse vs = fromJust $ fromList (Prelude.reverse (toList vs)) vs
@@ -94,7 +93,7 @@ vecSplit v = (vecHead v, vecTail v)
 
 -- zip together two vectors
 vecZipWith :: (a -> b -> c) -> Vector n a -> Vector n b -> Vector n c
-vecZipWith f (VecSing a) (VecSing b) = (VecSing (f a b))
+vecZipWith f (VecSing a) (VecSing b) = VecSing (f a b)
 vecZipWith f (a :+ as) (b :+ bs)     = f a b :+ vecZipWith f as bs
 
 dropIndex :: Fin ('Succ n) -> Vector ('Succ n) a -> Vector n a
@@ -114,13 +113,13 @@ index (FSucc i) (_ :+ vs) = index i vs
 
 -- set every item in a vector to a given value
 setVecTo :: a -> Vector n b -> Vector n a
-setVecTo a = fmap (\_ -> a)
+setVecTo a = fmap (const a)
 
 -- apply a function to every element of the vector except the first,
 --  then call this function again on the rest of the vector
 applyToRest :: (a -> a) -> Vector n a -> Vector n a
 applyToRest _ (VecSing a) = VecSing a
-applyToRest f (a :+ as)   = a :+ (applyToRest f $ fmap f as)
+applyToRest f (a :+ as)   = a :+ applyToRest f (fmap f as)
 
 -- when given a vector of length n, make it a vector of increasing value
 incrementingVec :: Num b => Vector n a -> Vector n b
@@ -134,7 +133,7 @@ dotProd v1 v2 = sum $ vecZipWith (*) v1 v2
 -- cheats by just applying the addition as opposed to any other thing
 crossProd :: Num a => Vector Three a -> Vector Three a -> Vector Three a
 crossProd (ax :+ (ay :+ (VecSing az))) (bx :+ (by :+ (VecSing bz))) =
-  (ay * bz - az * by) :+ ((az * bx - ax * bz) :+ (VecSing (ax * by - ay * bx)))
+  (ay * bz - az * by) :+ ((az * bx - ax * bz) :+ VecSing (ax * by - ay * bx))
 
 (.*) :: Num a => Vector n a -> Vector n a -> Vector n a
 (.*) = vecZipWith (*)
