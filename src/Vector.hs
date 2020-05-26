@@ -43,7 +43,7 @@ instance Ord a => Ord (Vector n a) where
     | otherwise = as <= bs
 
 replicate' :: Sing n -> a -> Vector n a
-replicate' SOne a    = VecSing a
+replicate' SOne a      = VecSing a
 replicate' (SSucc n) a = a :+ replicate' n a
 
 replicate :: SingI n => a -> Vector n a

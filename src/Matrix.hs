@@ -43,7 +43,7 @@ mapMatrix f = fmap (fmap f)
 
 -- show a matrix (with some prettifying)
 showMatrix :: Show a => Matrix n m a -> String
-showMatrix m = '[' : foldr (++) "\n]" items''
+showMatrix m = '[' : (concat items'') ++ "\n]"
   where
     items = toList $ toList <$> mapMatrix show m
     maxSize = maximum $ maximum $ map (map length) items
@@ -52,7 +52,8 @@ showMatrix m = '[' : foldr (++) "\n]" items''
         (("\n [" ++) .
          init .
          init .
-         foldr (\a b -> padList ' ' (maxSize - length a) a ++ ", " ++ b) "" )  items
+         foldr (\a b -> padList ' ' (maxSize - length a) a ++ ", " ++ b) "")
+        items
     items'' = map (++ "],") (init items') ++ [last items' ++ "]"]
 
 -- convenience function for printing a matrix
