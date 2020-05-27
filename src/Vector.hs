@@ -1,16 +1,30 @@
-{-# LANGUAGE DataKinds            #-}
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE GADTs                #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE TypeOperators        #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DataKinds              #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE GADTs                  #-}
+{-# LANGUAGE StandaloneDeriving     #-}
+{-# LANGUAGE TypeFamilies           #-}
+{-# LANGUAGE TypeOperators          #-}
+{-# LANGUAGE UndecidableInstances   #-}
+-- {-# LANGUAGE QuantifiedConstraints #-}
+{-# LANGUAGE ConstraintKinds        #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+-- {-# LANGUAGE GADTs #-}
+-- {-# LANGUAGE ConstraintKinds #-}
+-- {-# LANGUAGE TypeOperators #-}
+-- {-# LANGUAGE KindSignatures #-}
+-- {-# LANGUAGE ScopedTypeVariables #-}
+-- {-# LANGUAGE MultiParamTypeClasses #-}
+-- {-# LANGUAGE FlexibleInstances #-}
+-- {-# LANGUAGE FlexibleContexts #-}
+-- {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wall                       #-}
 
 module Vector where
 
-import           Data.Foldable   (toList)
-import           Data.Maybe      (fromJust)
+import           Data.Foldable    (toList)
+import           Data.Maybe       (fromJust)
 import           Data.Singletons
 import           Lib
 
@@ -18,6 +32,7 @@ data Vector (n :: Nat) a where
   VecSing :: a -> Vector 'One a
   (:+) :: a -> Vector n a -> Vector ('Succ n) a
 infixr 8 :+
+deriving instance Show a => Show (Vector n a)
 
 instance Functor (Vector n) where
   fmap f (VecSing a) = VecSing (f a)
@@ -26,9 +41,6 @@ instance Functor (Vector n) where
 instance Foldable (Vector n) where
   foldr f z (VecSing a) = a `f` z
   foldr f z (a :+ vs)   = a `f` foldr f z vs
-
-instance Show a => Show (Vector n a) where
-  show vs = "Vector " ++ show (toList vs)
 
 instance Eq a => Eq (Vector n a) where
   v1 == v2 = and $ vecZipWith (==) v1 v2
@@ -59,46 +71,6 @@ instance Monad (Vector 'One) where
 
 instance Monad (Vector n) => Monad (Vector ('Succ n)) where
   (a :+ as) >>= f = vecHead (f a) :+ (as >>= vecTail . f)
-
-instance Num a => Num (Vector 'One a) where
-  (+) = vecZipWith (+)
-  (*) = vecZipWith (*)
-  abs = fmap abs
-  signum = fmap signum
-  negate = fmap negate
-  fromInteger = VecSing . fromInteger
-
-instance (Num a, Num (Vector n a)) => Num (Vector ('Succ n) a) where
-  (+) = vecZipWith (+)
-  (*) = vecZipWith (*)
-  abs = fmap abs
-  signum = fmap signum
-  negate = fmap negate
-  fromInteger a = fromInteger a :+ fromInteger a
-
-instance Fractional a => Fractional (Vector 'One a) where
-  recip = fmap recip
-  fromRational = VecSing . fromRational
-
-instance (Fractional a, Fractional (Vector n a)) => Fractional (Vector ('Succ n) a) where
-  recip = fmap recip
-  fromRational a = (fromRational a) :+ fromRational a
-
-instance (Real a, Num (Vector n a)) => Real (Vector n a) where
-  toRational = sum . fmap toRational
-
-instance (Enum a) => Enum (Vector 'One a) where
-  toEnum a = VecSing (toEnum a)
-  fromEnum (VecSing a) = fromEnum a
-
-instance (Enum a, Enum (Vector n a)) => Enum (Vector ('Succ n) a) where
-  toEnum a = toEnum a :+ toEnum a
-  fromEnum (a :+ as) = fromEnum a + fromEnum as
-
-instance (Integral a, Real (Vector n a), Enum (Vector n a)) => Integral (Vector n a) where
-  toInteger = fromIntegral . length
-  quotRem n d = (fmap fst vals, fmap snd vals)
-    where vals = vecZipWith quotRem n d
 
 replicate' :: Sing n -> a -> Vector n a
 replicate' SOne a      = VecSing a

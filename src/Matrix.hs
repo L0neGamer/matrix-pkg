@@ -18,7 +18,7 @@ import           Vector
 -- and to https://github.com/janschultecom/idris-examples for more complex examples
 newtype Matrix n m a =
   Mat (Vector n (Vector m a))
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show)
 
 instance Functor (Matrix n m) where
   fmap f (Mat v) = Mat $ fmap (fmap f) v
@@ -26,56 +26,6 @@ instance Functor (Matrix n m) where
 instance Foldable (Matrix n m) where
   foldr f z (Mat (VecSing vs)) = foldr f z vs
   foldr f z (Mat (v :+ vs))    = (foldr f (foldr f z (Mat vs)) v)
-
-instance Show a => Show (Matrix n m a) where
-  show = showMatrix
-
-instance (Num a, Num (Vector m a)) => Num (Matrix 'One m a) where
-  (+) = matZipWith (+)
-  (*) = matZipWith (*)
-  abs = fmap abs
-  signum = fmap signum
-  negate = fmap negate
-  fromInteger = Mat . VecSing . fromInteger
-
-instance (Num a, Num (Vector m a), Num (Matrix n m a)) =>
-         Num (Matrix ('Succ n) m a) where
-  (+) = matZipWith (+)
-  (*) = matZipWith (*)
-  abs = fmap abs
-  signum = fmap signum
-  negate = fmap negate
-  fromInteger a = fromInteger a >: fromInteger a
-
-instance (Fractional a, Fractional (Vector m a)) =>
-         Fractional (Matrix 'One m a) where
-  recip = fmap recip
-  fromRational = Mat . VecSing . fromRational
-
-instance (Fractional a, Fractional (Vector m a), Fractional (Matrix n m a)) =>
-         Fractional (Matrix ('Succ n) m a) where
-  recip = fmap recip
-  fromRational a = fromRational a >: fromRational a
-
-instance (Real a, Num (Vector m a), Num (Matrix n m a)) =>
-         Real (Matrix n m a) where
-  toRational (Mat vs) = sum $ fmap toRational vs
-
-instance (Enum a, Enum (Vector m a)) => Enum (Matrix 'One m a) where
-  toEnum a = Mat $ VecSing $ toEnum a
-  fromEnum (Mat (VecSing a)) = fromEnum a
-
-instance (Enum a, Enum (Vector m a), Enum (Matrix n m a)) =>
-         Enum (Matrix ('Succ n) m a) where
-  toEnum a = toEnum a >: toEnum a
-  fromEnum (Mat (a :+ as)) = fromEnum a + fromEnum (Mat as)
-
-instance (Integral a, Real (Matrix n m a), Enum (Matrix n m a)) =>
-         Integral (Matrix n m a) where
-  toInteger = fromIntegral . length
-  quotRem n d = (fmap fst vals, fmap snd vals)
-    where
-      vals = matZipWith quotRem n d
 
 toLists :: Matrix n m a -> [[a]]
 toLists (Mat v) = toList $ fmap toList v
@@ -216,10 +166,10 @@ inverseMatrix m
     cboardThenMOM = checkerboard . matrixOfMinors
 
 -- -- find the determinant for a square matrix
-det' :: Num a => Sing n -> Matrix n n a -> a
+det' :: (Num a) => Sing n -> Matrix n n a -> a
 det' SOne (Mat (VecSing (VecSing a))) = a
 det' s@(SSucc _) m@(Mat (_ :+ _)) =
-  sum . vecHead . getVec $ m ..* (checkerboard . matrixOfMinors' s) m
+  sum . vecHead . getVec $ matZipWith (*) m $ (checkerboard . matrixOfMinors' s) m
 
 det :: (Num a, SingI n) => Matrix n n a -> a
 det = det' sing
@@ -228,9 +178,3 @@ det = det' sing
 -- below are some convienience binary operators for matrices
 (*.*) :: Num a => Matrix n m a -> Matrix m o a -> Matrix n o a
 (*.*) = multiplyMat
-
-(..*) :: Num a => Matrix n m a -> Matrix n m a -> Matrix n m a
-(..*) = matZipWith (*)
-
-(..+) :: Num a => Matrix n m a -> Matrix n m a -> Matrix n m a
-(..+) = matZipWith (+)
