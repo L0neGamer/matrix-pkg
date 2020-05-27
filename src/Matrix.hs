@@ -2,6 +2,8 @@
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE GADTs                #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeApplications     #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -9,8 +11,11 @@
 
 module Matrix where
 
-import           Data.Foldable   (toList)
+import           Control.Applicative
+import           Data.AdditiveGroup
+import           Data.Foldable       (toList)
 import           Data.Singletons
+import           Data.VectorSpace
 import           Lib
 import           Vector
 
@@ -26,6 +31,21 @@ instance Functor (Matrix n m) where
 instance Foldable (Matrix n m) where
   foldr f z (Mat (VecSing vs)) = foldr f z vs
   foldr f z (Mat (v :+ vs))    = (foldr f (foldr f z (Mat vs)) v)
+
+instance (KnownNat n, KnownNat m) => Applicative (Matrix n m) where
+  pure a = Mat $ pure (pure a)
+  (<*>) = case natSing @n of
+    OneS -> \(Mat (VecSing fs)) (Mat (VecSing as)) -> Mat (VecSing (fs <*> as))
+    SuccS -> \(Mat (fs :+ fss)) (Mat (as :+ ass)) -> (fs <*> as) >: ((Mat fss) <*> (Mat ass))
+
+instance (Num a, KnownNat n, KnownNat m) => AdditiveGroup (Matrix n m a) where
+  zeroV = pure 0
+  negateV = fmap negate
+  (^+^) = liftA2 (+)
+
+instance (Num a, KnownNat n, KnownNat m) => VectorSpace (Matrix n m a) where
+  type Scalar (Matrix n m a) = a
+  a *^ b = fmap (a*) b
 
 toLists :: Matrix n m a -> [[a]]
 toLists (Mat v) = toList $ fmap toList v

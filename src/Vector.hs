@@ -1,32 +1,35 @@
+{-# LANGUAGE ConstraintKinds        #-}
 {-# LANGUAGE DataKinds              #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs                  #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE StandaloneDeriving     #-}
+{-# LANGUAGE TypeApplications       #-}
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE TypeOperators          #-}
 {-# LANGUAGE UndecidableInstances   #-}
--- {-# LANGUAGE QuantifiedConstraints #-}
-{-# LANGUAGE ConstraintKinds        #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
--- {-# LANGUAGE GADTs #-}
--- {-# LANGUAGE ConstraintKinds #-}
--- {-# LANGUAGE TypeOperators #-}
--- {-# LANGUAGE KindSignatures #-}
--- {-# LANGUAGE ScopedTypeVariables #-}
--- {-# LANGUAGE MultiParamTypeClasses #-}
--- {-# LANGUAGE FlexibleInstances #-}
--- {-# LANGUAGE FlexibleContexts #-}
--- {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wall                       #-}
 
 module Vector where
 
-import           Data.Foldable    (toList)
-import           Data.Maybe       (fromJust)
+import           Control.Applicative
+import           Data.AdditiveGroup
+import           Data.Foldable       (toList)
+import           Data.Maybe          (fromJust)
 import           Data.Singletons
+import           Data.VectorSpace
 import           Lib
+
+{-
+old help:
+
+-- https://stackoverflow.com/questions/49206636/how-to-make-fixed-length-vectors-instance-of-applicative
+
+-- https://stackoverflow.com/questions/5802628/monad-instance-of-a-number-parameterised-vector
+-}
 
 data Vector (n :: Nat) a where
   VecSing :: a -> Vector 'One a
@@ -56,21 +59,28 @@ instance Ord a => Ord (Vector n a) where
     | a > b = False
     | otherwise = as <= bs
 
--- https://stackoverflow.com/questions/49206636/how-to-make-fixed-length-vectors-instance-of-applicative
-instance Applicative (Vector 'One) where
-  pure = VecSing
-  (VecSing f) <*> (VecSing a) = VecSing (f a)
+-- https://stackoverflow.com/questions/62039392/how-do-i-allow-one-constraint-to-imply-another-in-haskell/62040229#62040229
+instance KnownNat n => Applicative (Vector n) where
+  pure a = case natSing @n of
+    OneS  -> VecSing a
+    SuccS -> a :+ pure a
+  (<*>) = case natSing @n of
+    OneS  -> \(VecSing f) (VecSing a) -> VecSing $ f a
+    SuccS -> \(f :+ fs) (a :+ as) -> f a :+ (fs <*> as)
 
-instance Applicative (Vector n) => Applicative (Vector ('Succ n)) where
-  pure a = a :+ pure a
-  (f :+ fs) <*> (a :+ as) = f a :+ (fs <*> as)
+instance KnownNat n => Monad (Vector n) where
+  (>>=) = case natSing @n of
+    OneS  -> \(VecSing a) f -> f a
+    SuccS -> \(a :+ as) f -> (vecHead $ f a) :+ (as >>= (vecTail . f))
 
--- https://stackoverflow.com/questions/5802628/monad-instance-of-a-number-parameterised-vector
-instance Monad (Vector 'One) where
-  (VecSing a) >>= f = f a
+instance (Num a, KnownNat n) => AdditiveGroup (Vector n a) where
+  zeroV = pure 0
+  negateV = fmap negate
+  (^+^) = liftA2 (+)
 
-instance Monad (Vector n) => Monad (Vector ('Succ n)) where
-  (a :+ as) >>= f = vecHead (f a) :+ (as >>= vecTail . f)
+instance (Num a, KnownNat n) => VectorSpace (Vector n a) where
+  type Scalar (Vector n a) = a
+  a *^ b = fmap (a*) b
 
 replicate' :: Sing n -> a -> Vector n a
 replicate' SOne a      = VecSing a

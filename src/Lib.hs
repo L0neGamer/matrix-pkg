@@ -93,6 +93,20 @@ type family Add n m where
   Add 'One n = 'Succ n
   Add ('Succ n) m = 'Succ (Add n m)
 
+
+data NatS :: Nat -> Type where
+  OneS :: NatS 'One
+  SuccS :: KnownNat n => NatS ('Succ n)
+
+class KnownNat (n :: Nat) where
+  natSing :: NatS n  -- I like to call such values “witnesses”, but
+                     -- the conventional terminology is “singletons”.
+
+instance KnownNat 'One where
+  natSing = OneS
+instance KnownNat n => KnownNat ('Succ n) where
+  natSing = SuccS
+
 instance Bounded (Fin 'One) where
   minBound = FZero
   maxBound = FZero
