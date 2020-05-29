@@ -29,11 +29,11 @@ old help:
 
 -- https://stackoverflow.com/questions/5802628/monad-instance-of-a-number-parameterised-vector
 -}
-
 data Vector (n :: Nat) a where
   VecSing :: a -> Vector 'One a
   (:+) :: a -> Vector n a -> Vector ('Succ n) a
 infixr 8 :+
+
 deriving instance Show a => Show (Vector n a)
 
 instance Functor (Vector n) where
@@ -60,17 +60,20 @@ instance Ord a => Ord (Vector n a) where
 
 -- https://stackoverflow.com/questions/62039392/how-do-i-allow-one-constraint-to-imply-another-in-haskell/62040229#62040229
 instance KnownNat n => Applicative (Vector n) where
-  pure a = case natSing @n of
-    OneS  -> VecSing a
-    SuccS -> a :+ pure a
-  (<*>) = case natSing @n of
-    OneS  -> \(VecSing f) (VecSing a) -> VecSing $ f a
-    SuccS -> \(f :+ fs) (a :+ as) -> f a :+ (fs <*> as)
+  pure a =
+    case natSing @n of
+      OneS  -> VecSing a
+      SuccS -> a :+ pure a
+  (<*>) =
+    case natSing @n of
+      OneS  -> \(VecSing f) (VecSing a) -> VecSing $ f a
+      SuccS -> \(f :+ fs) (a :+ as) -> f a :+ (fs <*> as)
 
 instance KnownNat n => Monad (Vector n) where
-  (>>=) = case natSing @n of
-    OneS  -> \(VecSing a) f -> f a
-    SuccS -> \(a :+ as) f -> (vecHead $ f a) :+ (as >>= (vecTail . f))
+  (>>=) =
+    case natSing @n of
+      OneS  -> \(VecSing a) f -> f a
+      SuccS -> \(a :+ as) f -> (vecHead $ f a) :+ (as >>= (vecTail . f))
 
 instance (Num a, KnownNat n) => AdditiveGroup (Vector n a) where
   zeroV = pure 0
@@ -79,17 +82,25 @@ instance (Num a, KnownNat n) => AdditiveGroup (Vector n a) where
 
 instance (Num a, KnownNat n) => VectorSpace (Vector n a) where
   type Scalar (Vector n a) = a
-  a *^ b = fmap (a*) b
+  a *^ b = fmap (a *) b
 
-replicate :: forall a n . KnownNat n => a -> Vector n a
-replicate = case natSing @n of
-  OneS -> \a -> VecSing a
-  SuccS -> \a -> a :+ Vector.replicate a
+replicate ::
+     forall a n. KnownNat n
+  => a
+  -> Vector n a
+replicate =
+  case natSing @n of
+    OneS  -> \a -> VecSing a
+    SuccS -> \a -> a :+ Vector.replicate a
 
-generate :: forall a n . KnownNat n => (Fin n -> a) -> Vector n a
-generate f = case natSing @n of
-  OneS -> VecSing (f FZero)
-  SuccS -> f FZero :+ generate (f . FSucc)
+generate ::
+     forall a n. KnownNat n
+  => (Fin n -> a)
+  -> Vector n a
+generate f =
+  case natSing @n of
+    OneS  -> VecSing (f FZero)
+    SuccS -> f FZero :+ generate (f . FSucc)
 
 reverse :: Vector n a -> Vector n a
 reverse vs = fromJust $ fromList (Prelude.reverse (toList vs)) vs

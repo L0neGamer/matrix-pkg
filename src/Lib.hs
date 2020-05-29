@@ -16,17 +16,11 @@
 {-# LANGUAGE UndecidableInstances   #-}
 {-# OPTIONS_GHC -Wall                       #-}
 
--- {-# LANGUAGE TemplateHaskell        #-}
 module Lib where
 
 import           Data.Kind
 
--- import           Data.Singletons.TH
 {-
-data SNat (a :: Nat) where
-  SOne :: SNat 'One
-  SSucc :: Sing n -> SNat ('Succ n)
-automatically construct singletons for Nat, of "SOne" and "SSucc"
 Nat is for keeping the size of the vector in the type.
 this is done via promotion via... DataKinds I think
 Think of 'Nat and friends as the Types of this setup
@@ -37,23 +31,26 @@ Think of 'Nat and friends as the Types of this setup
 :k Succ  == Succ :: Nat -> Nat
 :t Succ  == Succ :: Nat -> Nat
 So the above definitions show that a Nat is a plain type; it takes no arguments
-
-:k SNat  == SNat :: Nat -> *
-:k SOne  == SOne :: SNat 'One
-:t SOne  == SOne :: SNat 'One
-:k SSucc == SSucc :: Sing n -> SNat ('Succ n)
-:t SSucc == SSucc :: SNat n -> SNat ('Succ n)
-the above definitions here show that SNat is a higher order type; that is,
-when given a Nat, it produces a type.
 -}
--- $(singletons
---     [d|
 data Nat
   = One
   | Succ Nat
   deriving (Show, Eq)
 
--- |])
+-- Following are KnownNats, which help with automatic construction of things
+data NatS :: Nat -> Type where
+  OneS :: NatS 'One
+  SuccS :: KnownNat n => NatS ('Succ n)
+
+class KnownNat (n :: Nat) where
+  natSing :: NatS n
+
+instance KnownNat 'One where
+  natSing = OneS
+
+instance KnownNat n => KnownNat ('Succ n) where
+  natSing = SuccS
+
 -- Fin is for indexing through the data structures.
 -- think of it as the "Numbers" of these structures
 -- :k Fin   == Fin :: Nat -> *
@@ -92,19 +89,6 @@ type Ten = 'Succ Nine
 type family Add n m where
   Add 'One n = 'Succ n
   Add ('Succ n) m = 'Succ (Add n m)
-
-data NatS :: Nat -> Type where
-  OneS :: NatS 'One
-  SuccS :: KnownNat n => NatS ('Succ n)
-
-class KnownNat (n :: Nat) where
-  natSing :: NatS n
-
-instance KnownNat 'One where
-  natSing = OneS
-
-instance KnownNat n => KnownNat ('Succ n) where
-  natSing = SuccS
 
 instance Bounded (Fin 'One) where
   minBound = FZero
