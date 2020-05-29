@@ -14,7 +14,6 @@ module Matrix where
 import           Control.Applicative
 import           Data.AdditiveGroup
 import           Data.Foldable       (toList)
-import           Data.Singletons
 import           Data.VectorSpace
 import           Lib
 import           Vector
@@ -34,9 +33,13 @@ instance Foldable (Matrix n m) where
 
 instance (KnownNat n, KnownNat m) => Applicative (Matrix n m) where
   pure a = Mat $ pure (pure a)
-  (<*>) = case natSing @n of
-    OneS -> \(Mat (VecSing fs)) (Mat (VecSing as)) -> Mat (VecSing (fs <*> as))
-    SuccS -> \(Mat (fs :+ fss)) (Mat (as :+ ass)) -> (fs <*> as) >: ((Mat fss) <*> (Mat ass))
+  (<*>) =
+    case natSing @n of
+      OneS ->
+        \(Mat (VecSing fs)) (Mat (VecSing as)) -> Mat (VecSing (fs <*> as))
+      SuccS ->
+        \(Mat (fs :+ fss)) (Mat (as :+ ass)) ->
+          (fs <*> as) >: ((Mat fss) <*> (Mat ass))
 
 instance (Num a, KnownNat n, KnownNat m) => AdditiveGroup (Matrix n m a) where
   zeroV = pure 0
@@ -45,7 +48,7 @@ instance (Num a, KnownNat n, KnownNat m) => AdditiveGroup (Matrix n m a) where
 
 instance (Num a, KnownNat n, KnownNat m) => VectorSpace (Matrix n m a) where
   type Scalar (Matrix n m a) = a
-  a *^ b = fmap (a*) b
+  a *^ b = fmap (a *) b
 
 toLists :: Matrix n m a -> [[a]]
 toLists (Mat v) = toList $ fmap toList v
@@ -60,19 +63,22 @@ getVec (Mat v) = v
 squareMatrix :: a -> Vector n b -> Matrix n n a
 squareMatrix a v = consFrom (\_ _ -> a) v v
 
-generateMat' :: Sing n -> Sing m -> (Fin n -> Fin m -> a) -> Matrix n m a
-generateMat' SOne sm f = Mat $ VecSing (generate' sm (f FZero))
-generateMat' (SSucc sn) sm f =
-  generate' sm (f FZero) >: generateMat' sn sm (f . FSucc)
-
-generateMat :: (SingI n, SingI m) => (Fin n -> Fin m -> a) -> Matrix n m a
-generateMat = generateMat' sing sing
+generateMat ::
+     forall a n m. (KnownNat n, KnownNat m)
+  => (Fin n -> Fin m -> a)
+  -> Matrix n m a
+generateMat f =
+  case natSing @n of
+    OneS  -> Mat $ VecSing (generate (f FZero))
+    SuccS -> generate (f FZero) >: generateMat (f . FSucc)
 
 consFrom :: (a -> b -> c) -> Vector n a -> Vector m b -> Matrix n m c
 consFrom f (VecSing a) bs = (Mat . singleton . fmap (f a)) bs
 consFrom f (a :+ as) bs   = fmap (f a) bs >: consFrom f as bs
 
-identity :: (Num a, SingI n) => Matrix n n a
+identity ::
+     forall a n. (Num a, KnownNat n)
+  => Matrix n n a
 identity = generateMat (\a b -> fromIntegral $ fromEnum (a == b))
 
 -- show a matrix (with some prettifying)
@@ -167,17 +173,20 @@ checkerboard :: Num a => Matrix n m a -> Matrix n m a
 checkerboard (Mat vs) =
   Mat $ fmap (applyToRest negate) $ applyToRest (fmap negate) vs
 
-matrixOfMinors' :: (Num a) => Sing n -> Matrix n n a -> Matrix n n a
-matrixOfMinors' SOne m = Mat $ (VecSing . VecSing . det) m
-matrixOfMinors' s@(SSucc s') m =
-  fmap (det' s') $ generateMat' s s (\i j -> subMatrix i j m)
-
-matrixOfMinors :: (Num a, SingI n) => Matrix n n a -> Matrix n n a
-matrixOfMinors = matrixOfMinors' sing
+matrixOfMinors ::
+     forall a n. (Num a, KnownNat n)
+  => Matrix n n a
+  -> Matrix n n a
+matrixOfMinors m =
+  case natSing @n of
+    OneS  -> Mat $ (VecSing . VecSing . det) m
+    SuccS -> fmap det $ generateMat (\i j -> subMatrix i j m)
 
 -- -- thanks to https://www.mathsisfun.com/algebra/matrix-inverse-minors-cofactors-adjugate.html
 inverseMatrix ::
-     (Fractional a, Eq a, SingI n) => Matrix n n a -> Maybe (Matrix n n a)
+     forall a n. (Fractional a, Eq a, KnownNat n)
+  => Matrix n n a
+  -> Maybe (Matrix n n a)
 inverseMatrix m
   | determinant == 0 = Nothing
   | otherwise = Just $ transpose $ fmap (/ determinant) (cboardThenMOM m)
@@ -185,14 +194,16 @@ inverseMatrix m
     determinant = det m
     cboardThenMOM = checkerboard . matrixOfMinors
 
--- -- find the determinant for a square matrix
-det' :: (Num a) => Sing n -> Matrix n n a -> a
-det' SOne (Mat (VecSing (VecSing a))) = a
-det' s@(SSucc _) m@(Mat (_ :+ _)) =
-  sum . vecHead . getVec $ matZipWith (*) m $ (checkerboard . matrixOfMinors' s) m
-
-det :: (Num a, SingI n) => Matrix n n a -> a
-det = det' sing
+det ::
+     forall a n. (Num a, KnownNat n)
+  => Matrix n n a
+  -> a
+det m =
+  case natSing @n of
+    OneS -> (vecHead . vecHead . getVec) m
+    SuccS ->
+      sum . vecHead . getVec $
+      matZipWith (*) m $ (checkerboard . matrixOfMinors) m
 
 -- above two lines are virtually identical, just to make compiler happy
 -- below are some convienience binary operators for matrices

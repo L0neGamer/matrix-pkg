@@ -19,7 +19,6 @@ import           Control.Applicative
 import           Data.AdditiveGroup
 import           Data.Foldable       (toList)
 import           Data.Maybe          (fromJust)
-import           Data.Singletons
 import           Data.VectorSpace
 import           Lib
 
@@ -82,19 +81,15 @@ instance (Num a, KnownNat n) => VectorSpace (Vector n a) where
   type Scalar (Vector n a) = a
   a *^ b = fmap (a*) b
 
-replicate' :: Sing n -> a -> Vector n a
-replicate' SOne a      = VecSing a
-replicate' (SSucc n) a = a :+ replicate' n a
+replicate :: forall a n . KnownNat n => a -> Vector n a
+replicate = case natSing @n of
+  OneS -> \a -> VecSing a
+  SuccS -> \a -> a :+ Vector.replicate a
 
-replicate :: SingI n => a -> Vector n a
-replicate = replicate' sing
-
-generate' :: Sing n -> (Fin n -> a) -> Vector n a
-generate' SOne f       = VecSing (f FZero)
-generate' (SSucc ss) f = f FZero :+ generate' ss (f . FSucc)
-
-generate :: SingI n => (Fin n -> a) -> Vector n a
-generate = generate' sing
+generate :: forall a n . KnownNat n => (Fin n -> a) -> Vector n a
+generate f = case natSing @n of
+  OneS -> VecSing (f FZero)
+  SuccS -> f FZero :+ generate (f . FSucc)
 
 reverse :: Vector n a -> Vector n a
 reverse vs = fromJust $ fromList (Prelude.reverse (toList vs)) vs

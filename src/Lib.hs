@@ -9,7 +9,6 @@
 {-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE StandaloneDeriving     #-}
-{-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE TypeApplications       #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE TypeInType             #-}
@@ -17,11 +16,12 @@
 {-# LANGUAGE UndecidableInstances   #-}
 {-# OPTIONS_GHC -Wall                       #-}
 
+-- {-# LANGUAGE TemplateHaskell        #-}
 module Lib where
 
 import           Data.Kind
-import           Data.Singletons.TH
 
+-- import           Data.Singletons.TH
 {-
 data SNat (a :: Nat) where
   SOne :: SNat 'One
@@ -46,14 +46,14 @@ So the above definitions show that a Nat is a plain type; it takes no arguments
 the above definitions here show that SNat is a higher order type; that is,
 when given a Nat, it produces a type.
 -}
-$(singletons
-    [d|
+-- $(singletons
+--     [d|
+data Nat
+  = One
+  | Succ Nat
+  deriving (Show, Eq)
 
-  data Nat = One
-           | Succ Nat
-               deriving (Show, Eq)
-  |])
-
+-- |])
 -- Fin is for indexing through the data structures.
 -- think of it as the "Numbers" of these structures
 -- :k Fin   == Fin :: Nat -> *
@@ -93,17 +93,16 @@ type family Add n m where
   Add 'One n = 'Succ n
   Add ('Succ n) m = 'Succ (Add n m)
 
-
 data NatS :: Nat -> Type where
   OneS :: NatS 'One
   SuccS :: KnownNat n => NatS ('Succ n)
 
 class KnownNat (n :: Nat) where
-  natSing :: NatS n  -- I like to call such values “witnesses”, but
-                     -- the conventional terminology is “singletons”.
+  natSing :: NatS n
 
 instance KnownNat 'One where
   natSing = OneS
+
 instance KnownNat n => KnownNat ('Succ n) where
   natSing = SuccS
 
@@ -127,28 +126,9 @@ instance (Enum (Fin n)) => Enum (Fin ('Succ n)) where
     | n > 1 = FSucc (toEnum (n - 1))
     | otherwise = error "bad argument"
 
--- instance (Enum (Fin n)) => Num (Fin n) where
---   a + b = toEnum $ (+) (fromEnum a) (fromEnum b)
---   a * b = toEnum $ (*) (fromEnum a) (fromEnum b)
---   abs = id
---   signum = const FZero
---   negate = id
---   fromInteger = toEnum . fromIntegral
--- instance (Enum (Fin n)) => Integral (Fin n) where
---   toInteger = fromIntegral . fromEnum
-singSize :: Sing (n :: Nat) -> Integer
-singSize SOne      = 1
-singSize (SSucc s) = 1 + singSize s
-
 finSize :: Fin n -> Integer
 finSize FZero     = 1
 finSize (FSucc f) = 1 + finSize f
-
-sizeDif' :: Sing n -> Fin n -> Integer
-sizeDif' s f = singSize s - finSize f
-
-sizeDif :: SingI n => Fin n -> Integer
-sizeDif = sizeDif' sing
 
 cantorPairing :: Integral a => a -> a -> a
 cantorPairing a b = div ((a + b) * (a + b + 1)) 2 + b
