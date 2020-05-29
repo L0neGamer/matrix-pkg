@@ -21,6 +21,7 @@ import           Data.Foldable       (toList)
 import           Data.Maybe          (fromJust)
 import           Data.VectorSpace
 import           Lib
+import           Prelude             hiding (zipWith)
 
 {-
 old help:
@@ -45,7 +46,7 @@ instance Foldable (Vector n) where
   foldr f z (a :+ vs)   = a `f` foldr f z vs
 
 instance Eq a => Eq (Vector n a) where
-  v1 == v2 = and $ vecZipWith (==) v1 v2
+  v1 == v2 = and $ Lib.zipWith (==) v1 v2
 
 instance Traversable (Vector n) where
   traverse f (VecSing a) = VecSing <$> f a
@@ -84,14 +85,19 @@ instance (Num a, KnownNat n) => VectorSpace (Vector n a) where
   type Scalar (Vector n a) = a
   a *^ b = fmap (a *) b
 
-replicate ::
-     forall a n. KnownNat n
-  => a
-  -> Vector n a
-replicate =
-  case natSing @n of
-    OneS  -> \a -> VecSing a
-    SuccS -> \a -> a :+ Vector.replicate a
+instance (Semigroup a) => Semigroup (Vector n a) where
+  (<>) = Lib.zipWith (<>)
+
+instance (Monoid a, KnownNat n) => Monoid (Vector n a) where
+  mempty = pure mempty
+
+instance (AdditiveGroup a, Num a, KnownNat n) => InnerSpace (Vector n a) where
+  (<.>) = dotProd
+
+instance LinearData (Vector n) where
+  (^*^) = Lib.zipWith (*)
+  zipWith f (VecSing a) (VecSing b) = VecSing (f a b)
+  zipWith f (a :+ as) (b :+ bs)     = f a b :+ Lib.zipWith f as bs
 
 generate ::
      forall a n. KnownNat n
@@ -137,11 +143,6 @@ vecTail (_ :+ vs) = vs
 vecSplit :: Vector ('Succ n) a -> (a, Vector n a)
 vecSplit v = (vecHead v, vecTail v)
 
--- zip together two vectors
-vecZipWith :: (a -> b -> c) -> Vector n a -> Vector n b -> Vector n c
-vecZipWith f (VecSing a) (VecSing b) = VecSing (f a b)
-vecZipWith f (a :+ as) (b :+ bs)     = f a b :+ vecZipWith f as bs
-
 dropIndex :: Fin ('Succ n) -> Vector ('Succ n) a -> Vector n a
 dropIndex FZero (_ :+ vs)                  = vs
 dropIndex (FSucc FZero) (b :+ (VecSing _)) = VecSing b
@@ -167,19 +168,12 @@ applyToRest :: (a -> a) -> Vector n a -> Vector n a
 applyToRest _ (VecSing a) = VecSing a
 applyToRest f (a :+ as)   = a :+ applyToRest f (fmap f as)
 
--- when given a vector of length n, make it a vector of increasing value
-incrementingVec :: Num b => Vector n a -> Vector n b
-incrementingVec = applyToRest (+ 1) . setVecTo 0
-
 -- find the dot product between two vectors
-dotProd :: Num a => Vector n a -> Vector n a -> a
-dotProd v1 v2 = sum $ vecZipWith (*) v1 v2
+dotProd :: (Num a) => Vector n a -> Vector n a -> a
+dotProd v1 v2 = sum $ v1 ^*^ v2
 
 -- find the cross product between two three dimensional vectors
 -- cheats by just applying the addition as opposed to any other thing
 crossProd :: Num a => Vector Three a -> Vector Three a -> Vector Three a
 crossProd (ax :+ (ay :+ (VecSing az))) (bx :+ (by :+ (VecSing bz))) =
   (ay * bz - az * by) :+ ((az * bx - ax * bz) :+ VecSing (ax * by - ay * bx))
-
-(.*) :: Num a => Vector n a -> Vector n a -> Vector n a
-(.*) = vecZipWith (*)

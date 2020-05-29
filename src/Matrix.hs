@@ -50,6 +50,16 @@ instance (Num a, KnownNat n, KnownNat m) => VectorSpace (Matrix n m a) where
   type Scalar (Matrix n m a) = a
   a *^ b = fmap (a *) b
 
+instance (Semigroup a) => Semigroup (Matrix n m a) where
+  (<>) = Lib.zipWith (<>)
+
+instance (Monoid a, KnownNat n, KnownNat m) => Monoid (Matrix n m a) where
+  mempty = pure mempty
+
+instance LinearData (Matrix n m) where
+  (^*^) = Lib.zipWith (*)
+  zipWith f (Mat vs) (Mat vs') = Mat $ Lib.zipWith (Lib.zipWith f) vs vs'
+
 toLists :: Matrix n m a -> [[a]]
 toLists (Mat v) = toList $ fmap toList v
 
@@ -58,10 +68,6 @@ getVec (Mat v) = v
 
 (>:) :: Vector m a -> Matrix n m a -> Matrix ('Succ n) m a
 (>:) = prependRow
-
--- below are construction and displaying matrices
-squareMatrix :: a -> Vector n b -> Matrix n n a
-squareMatrix a v = consFrom (\_ _ -> a) v v
 
 generateMat ::
      forall a n m. (KnownNat n, KnownNat m)
@@ -108,13 +114,13 @@ prependRow :: Vector m a -> Matrix n m a -> Matrix ('Succ n) m a
 prependRow v (Mat vs) = Mat $ v :+ vs
 
 appendCol :: Vector n a -> Matrix n m a -> Matrix n ('Succ m) a
-appendCol v (Mat vs) = Mat $ vecZipWith appendVal v vs
+appendCol v (Mat vs) = Mat $ Lib.zipWith appendVal v vs
 
 prependCol :: Vector n a -> Matrix n m a -> Matrix n ('Succ m) a
-prependCol v (Mat vs) = Mat $ vecZipWith (:+) v vs
+prependCol v (Mat vs) = Mat $ Lib.zipWith (:+) v vs
 
 concatCols :: Matrix n m a -> Matrix n o a -> Matrix n (Add m o) a
-concatCols (Mat vs) (Mat vs') = Mat $ vecZipWith (+++) vs vs'
+concatCols (Mat vs) (Mat vs') = Mat $ Lib.zipWith (+++) vs vs'
 
 concatRows :: Matrix n m a -> Matrix o m a -> Matrix (Add n o) m a
 concatRows (Mat vs) (Mat vs') = Mat $ vs +++ vs'
@@ -151,10 +157,6 @@ transpose (Mat (v@(_ :+ _) :+ vs)) = prependCol v $ topRow >: tails
   where
     tails = transpose $ Mat $ fmap vecTail vs
     topRow = fmap vecHead vs
-
--- zip together two equally sized matrices
-matZipWith :: (a -> b -> c) -> Matrix n m a -> Matrix n m b -> Matrix n m c
-matZipWith f (Mat vs) (Mat vs') = Mat $ vecZipWith (vecZipWith f) vs vs'
 
 -- help from: https://github.com/janschultecom/idris-examples/blob/master/matrixmult.idr#L21
 -- helper function to multiply a vector over a matrix
@@ -203,7 +205,10 @@ det m =
     OneS -> (vecHead . vecHead . getVec) m
     SuccS ->
       sum . vecHead . getVec $
-      matZipWith (*) m $ (checkerboard . matrixOfMinors) m
+      Lib.zipWith (*) m $ (checkerboard . matrixOfMinors) m
+
+innerProduct :: Num a => Matrix n n a -> Matrix n n a -> Matrix n n a
+innerProduct m1 m2 = m1 *.* transpose m2
 
 -- above two lines are virtually identical, just to make compiler happy
 -- below are some convienience binary operators for matrices

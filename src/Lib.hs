@@ -110,6 +110,10 @@ instance (Enum (Fin n)) => Enum (Fin ('Succ n)) where
     | n > 1 = FSucc (toEnum (n - 1))
     | otherwise = error "bad argument"
 
+class LinearData v where
+  (^*^) :: Num a => (v a) -> (v a) -> (v a)
+  zipWith :: (a -> b -> c) -> (v a) -> (v b) -> (v c)
+
 finSize :: Fin n -> Integer
 finSize FZero     = 1
 finSize (FSucc f) = 1 + finSize f
