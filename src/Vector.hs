@@ -63,18 +63,18 @@ instance Ord a => Ord (Vector n a) where
 instance KnownNat n => Applicative (Vector n) where
   pure a =
     case natSing @n of
-      OneS  -> VecSing a
-      SuccS -> a :+ pure a
+      OneS    -> VecSing a
+      SuccS _ -> a :+ pure a
   (<*>) =
     case natSing @n of
-      OneS  -> \(VecSing f) (VecSing a) -> VecSing $ f a
-      SuccS -> \(f :+ fs) (a :+ as) -> f a :+ (fs <*> as)
+      OneS    -> \(VecSing f) (VecSing a) -> VecSing $ f a
+      SuccS _ -> \(f :+ fs) (a :+ as) -> f a :+ (fs <*> as)
 
 instance KnownNat n => Monad (Vector n) where
   (>>=) =
     case natSing @n of
-      OneS  -> \(VecSing a) f -> f a
-      SuccS -> \(a :+ as) f -> (vecHead $ f a) :+ (as >>= (vecTail . f))
+      OneS    -> \(VecSing a) f -> f a
+      SuccS _ -> \(a :+ as) f -> (vecHead $ f a) :+ (as >>= (vecTail . f))
 
 instance (Num a, KnownNat n) => AdditiveGroup (Vector n a) where
   zeroV = pure 0
@@ -105,8 +105,8 @@ generate ::
   -> Vector n a
 generate f =
   case natSing @n of
-    OneS  -> VecSing (f FZero)
-    SuccS -> f FZero :+ generate (f . FSucc)
+    OneS    -> VecSing (f FZero)
+    SuccS _ -> f FZero :+ generate (f . FSucc)
 
 reverse :: Vector n a -> Vector n a
 reverse vs = fromJust $ fromList (Prelude.reverse (toList vs)) vs

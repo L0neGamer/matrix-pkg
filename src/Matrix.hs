@@ -37,7 +37,7 @@ instance (KnownNat n, KnownNat m) => Applicative (Matrix n m) where
     case natSing @n of
       OneS ->
         \(Mat (VecSing fs)) (Mat (VecSing as)) -> Mat (VecSing (fs <*> as))
-      SuccS ->
+      SuccS _ ->
         \(Mat (fs :+ fss)) (Mat (as :+ ass)) ->
           (fs <*> as) >: ((Mat fss) <*> (Mat ass))
 
@@ -75,8 +75,8 @@ generateMat ::
   -> Matrix n m a
 generateMat f =
   case natSing @n of
-    OneS  -> Mat $ VecSing (generate (f FZero))
-    SuccS -> generate (f FZero) >: generateMat (f . FSucc)
+    OneS    -> Mat $ VecSing (generate (f FZero))
+    SuccS _ -> generate (f FZero) >: generateMat (f . FSucc)
 
 consFrom :: (a -> b -> c) -> Vector n a -> Vector m b -> Matrix n m c
 consFrom f (VecSing a) bs = (Mat . singleton . fmap (f a)) bs
@@ -181,8 +181,8 @@ matrixOfMinors ::
   -> Matrix n n a
 matrixOfMinors m =
   case natSing @n of
-    OneS  -> Mat $ (VecSing . VecSing . det) m
-    SuccS -> fmap det $ generateMat (\i j -> subMatrix i j m)
+    OneS    -> Mat $ (VecSing . VecSing . det) m
+    SuccS _ -> fmap det $ generateMat (\i j -> subMatrix i j m)
 
 -- -- thanks to https://www.mathsisfun.com/algebra/matrix-inverse-minors-cofactors-adjugate.html
 inverseMatrix ::
@@ -203,7 +203,7 @@ det ::
 det m =
   case natSing @n of
     OneS -> (vecHead . vecHead . getVec) m
-    SuccS ->
+    SuccS _ ->
       sum . vecHead . getVec $
       Lib.zipWith (*) m $ (checkerboard . matrixOfMinors) m
 

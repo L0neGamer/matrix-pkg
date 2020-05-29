@@ -40,7 +40,7 @@ data Nat
 -- Following are KnownNats, which help with automatic construction of things
 data NatS :: Nat -> Type where
   OneS :: NatS 'One
-  SuccS :: KnownNat n => NatS ('Succ n)
+  SuccS :: KnownNat n => NatS n -> NatS ('Succ n)
 
 class KnownNat (n :: Nat) where
   natSing :: NatS n
@@ -49,7 +49,7 @@ instance KnownNat 'One where
   natSing = OneS
 
 instance KnownNat n => KnownNat ('Succ n) where
-  natSing = SuccS
+  natSing = SuccS natSing
 
 -- Fin is for indexing through the data structures.
 -- think of it as the "Numbers" of these structures
