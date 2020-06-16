@@ -13,10 +13,12 @@ module Matrix where
 
 import           Control.Applicative
 import           Data.AdditiveGroup
-import           Data.Foldable       (toList)
+import           Data.Foldable       (toList, find, foldl')
 import           Data.VectorSpace
 import           Lib
 import           Vector
+import qualified Debug.Trace as T
+import qualified Data.Set as S
 
 -- thanks to https://www.parsonsmatt.org/2017/04/26/basic_type_level_programming_in_haskell.html
 -- and to https://github.com/janschultecom/idris-examples for more complex examples
@@ -69,6 +71,14 @@ getVec (Mat v) = v
 (>:) :: Vector m a -> Matrix n m a -> Matrix ('Succ n) m a
 (>:) = prependRow
 
+sizeAsFin :: (KnownNat n, KnownNat m) => Matrix n m a -> (Fin n, Fin m)
+sizeAsFin _ = (maxBound, maxBound)
+
+size :: (KnownNat n, KnownNat m) => Matrix n m a -> (Integer, Integer)
+size mat = (finSize fst', finSize snd')
+  where
+    (fst', snd') = Matrix.sizeAsFin mat
+
 generateMat ::
      forall a n m. (KnownNat n, KnownNat m)
   => (Fin n -> Fin m -> a)
@@ -82,9 +92,7 @@ consFrom :: (a -> b -> c) -> Vector n a -> Vector m b -> Matrix n m c
 consFrom f (VecSing a) bs = (Mat . singleton . fmap (f a)) bs
 consFrom f (a :+ as) bs   = fmap (f a) bs >: consFrom f as bs
 
-identity ::
-     forall a n. (Num a, KnownNat n)
-  => Matrix n n a
+identity :: (Num a, KnownNat n) => Matrix n n a
 identity = generateMat (\a b -> fromIntegral $ fromEnum (a == b))
 
 -- show a matrix (with some prettifying)
@@ -157,6 +165,45 @@ transpose (Mat (v@(_ :+ _) :+ vs)) = prependCol v $ topRow >: tails
   where
     tails = transpose $ Mat $ fmap vecTail vs
     topRow = fmap vecHead vs
+
+subtractRow :: forall a n m. (KnownNat n, KnownNat m, Num a, Show a)
+  => Matrix n m a -> Fin n -> Fin m -> Fin n -> Matrix n m a
+subtractRow mat row col currRow = T.trace (showMatrix mat++"subtractrow:"++showMatrix mat') mat'
+  where selectedCols = finFrom col
+        multVal = getAtMatrix currRow col mat
+        values = map (\col' -> (col',getAtMatrix currRow col' mat - (multVal * getAtMatrix row col' mat))) selectedCols
+        mat' = foldl' (\newMat (col', val) -> setAtMatrix currRow col' val newMat) mat values
+
+-- compared to original code, this doesn't take into account errors with floating point numbers
+-- as such, be careful
+calcFromElem :: forall a n m. (KnownNat n, KnownNat m, Fractional a, Show a) =>
+  Matrix n m a -> Fin n -> Fin m -> Matrix n m a
+calcFromElem mat row col = T.trace (showMatrix mat++"calcFromElem:"++showMatrix mat') mat'
+  where selectedCols = finFrom col
+        selectedValue = getAtMatrix row col mat
+        values = map (\col' -> (col', getAtMatrix row col' mat / selectedValue)) selectedCols
+        multipliedDownMatrix = foldr (\(col', val) newMat -> setAtMatrix row col' val newMat) mat values
+        mat' = foldl' (\newMat row' -> subtractRow newMat row col row') multipliedDownMatrix (filter (/= row) fins)
+
+onCol :: forall a n m. (KnownNat n, KnownNat m, Fractional a, Eq a, Show a) =>
+  Matrix n m a -> Fin m -> S.Set (Fin n) -> Maybe (Matrix n m a, Fin n)
+onCol mat col previousRows = selectedRow >>= \row -> Just (calcFromElem mat row col, row)
+  where selectedRow = find (\row -> (not $ elem row previousRows) && (getAtMatrix row col mat /= 0)) fins
+
+rank' :: (Show a) => Maybe (Matrix n m a, Fin n) -> Matrix n m a -> S.Set (Fin n) -> (Matrix n m a, S.Set (Fin n))
+rank' Nothing mat set = (mat, set)
+rank' (Just (mat, row)) _ set = T.trace (showMatrix mat) (mat, S.insert row set)
+
+-- if you can find a way to check that n==m, and that the determinant of the matrix
+--  is non zero, you can take a shortcut for square matrices
+-- | matRows == matCols && det mat /= 0 = maxRank
+rank ::
+     forall a n m. (KnownNat n, KnownNat m, Fractional a, Eq a, Show a)
+  => Matrix n m a
+  -> Integer
+rank mat = T.trace (show res) undefined
+  where cols = fins :: [Fin m]
+        res = foldl' (\(mat', set) col -> rank' (onCol mat' col set) mat' set) (mat, S.empty) cols
 
 -- help from: https://github.com/janschultecom/idris-examples/blob/master/matrixmult.idr#L21
 -- helper function to multiply a vector over a matrix
