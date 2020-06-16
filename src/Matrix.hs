@@ -13,11 +13,11 @@ module Matrix where
 
 import           Control.Applicative
 import           Data.AdditiveGroup
-import           Data.Foldable       (toList, find, foldl')
+import           Data.Foldable       (find, foldl', toList)
+import qualified Data.Set            as S
 import           Data.VectorSpace
 import           Lib
 import           Vector
-import qualified Data.Set as S
 
 -- thanks to https://www.parsonsmatt.org/2017/04/26/basic_type_level_programming_in_haskell.html
 -- and to https://github.com/janschultecom/idris-examples for more complex examples
@@ -165,32 +165,73 @@ transpose (Mat (v@(_ :+ _) :+ vs)) = prependCol v $ topRow >: tails
     tails = transpose $ Mat $ fmap vecTail vs
     topRow = fmap vecHead vs
 
-subtractRow :: forall a n m. (KnownNat n, KnownNat m, Num a)
-  => Matrix n m a -> Fin n -> Fin m -> Fin n -> Matrix n m a
+subtractRow ::
+     forall a n m. (KnownNat n, KnownNat m, Num a)
+  => Matrix n m a
+  -> Fin n
+  -> Fin m
+  -> Fin n
+  -> Matrix n m a
 subtractRow mat row col currRow = mat'
-  where selectedCols = finFrom col
-        multVal = getAtMatrix currRow col mat
-        values = map (\col' -> (col',getAtMatrix currRow col' mat - (multVal * getAtMatrix row col' mat))) selectedCols
-        mat' = foldl' (\newMat (col', val) -> setAtMatrix currRow col' val newMat) mat values
+  where
+    selectedCols = finFrom col
+    multVal = getAtMatrix currRow col mat
+    values =
+      map
+        (\col' ->
+           ( col'
+           , getAtMatrix currRow col' mat - (multVal * getAtMatrix row col' mat)))
+        selectedCols
+    mat' =
+      foldl'
+        (\newMat (col', val) -> setAtMatrix currRow col' val newMat)
+        mat
+        values
 
 -- compared to original code, this doesn't take into account errors with floating point numbers
 -- as such, be careful
-calcFromElem :: forall a n m. (KnownNat n, KnownNat m, Fractional a) =>
-  Matrix n m a -> Fin n -> Fin m -> Matrix n m a
+calcFromElem ::
+     forall a n m. (KnownNat n, KnownNat m, Fractional a)
+  => Matrix n m a
+  -> Fin n
+  -> Fin m
+  -> Matrix n m a
 calcFromElem mat row col = mat'
-  where selectedCols = finFrom col
-        selectedValue = getAtMatrix row col mat
-        values = map (\col' -> (col', getAtMatrix row col' mat / selectedValue)) selectedCols
-        multipliedDownMatrix = foldr (\(col', val) newMat -> setAtMatrix row col' val newMat) mat values
-        mat' = foldl' (\newMat row' -> subtractRow newMat row col row') multipliedDownMatrix (filter (/= row) fins)
+  where
+    selectedCols = finFrom col
+    selectedValue = getAtMatrix row col mat
+    values =
+      map
+        (\col' -> (col', getAtMatrix row col' mat / selectedValue))
+        selectedCols
+    multipliedDownMatrix =
+      foldr (\(col', val) newMat -> setAtMatrix row col' val newMat) mat values
+    mat' =
+      foldl'
+        (\newMat row' -> subtractRow newMat row col row')
+        multipliedDownMatrix
+        (filter (/= row) fins)
 
-onCol :: forall a n m. (KnownNat n, KnownNat m, Fractional a, Eq a) =>
-  Matrix n m a -> Fin m -> S.Set (Fin n) -> Maybe (Matrix n m a, Fin n)
-onCol mat col previousRows = selectedRow >>= \row -> Just (calcFromElem mat row col, row)
-  where selectedRow = find (\row -> (not $ elem row previousRows) && (getAtMatrix row col mat /= 0)) fins
+onCol ::
+     forall a n m. (KnownNat n, KnownNat m, Fractional a, Eq a)
+  => Matrix n m a
+  -> Fin m
+  -> S.Set (Fin n)
+  -> Maybe (Matrix n m a, Fin n)
+onCol mat col previousRows =
+  selectedRow >>= \row -> Just (calcFromElem mat row col, row)
+  where
+    selectedRow =
+      find
+        (\row -> (not $ elem row previousRows) && (getAtMatrix row col mat /= 0))
+        fins
 
-rank' :: Maybe (Matrix n m a, Fin n) -> Matrix n m a -> S.Set (Fin n) -> (Matrix n m a, S.Set (Fin n))
-rank' Nothing mat set = (mat, set)
+rank' ::
+     Maybe (Matrix n m a, Fin n)
+  -> Matrix n m a
+  -> S.Set (Fin n)
+  -> (Matrix n m a, S.Set (Fin n))
+rank' Nothing mat set         = (mat, set)
 rank' (Just (mat, row)) _ set = (mat, S.insert row set)
 
 -- if you can find a way to check that n==m, and that the determinant of the matrix
@@ -201,8 +242,13 @@ rank ::
   => Matrix n m a
   -> Integer
 rank mat = fromIntegral $ length setToCheck
-  where cols = fins :: [Fin m]
-        (_, setToCheck) = foldl' (\(mat', set) col -> rank' (onCol mat' col set) mat' set) (mat, S.empty) cols
+  where
+    cols = fins :: [Fin m]
+    (_, setToCheck) =
+      foldl'
+        (\(mat', set) col -> rank' (onCol mat' col set) mat' set)
+        (mat, S.empty)
+        cols
 
 -- help from: https://github.com/janschultecom/idris-examples/blob/master/matrixmult.idr#L21
 -- helper function to multiply a vector over a matrix
