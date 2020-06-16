@@ -17,7 +17,6 @@ import           Data.Foldable       (toList, find, foldl')
 import           Data.VectorSpace
 import           Lib
 import           Vector
-import qualified Debug.Trace as T
 import qualified Data.Set as S
 
 -- thanks to https://www.parsonsmatt.org/2017/04/26/basic_type_level_programming_in_haskell.html
@@ -166,9 +165,9 @@ transpose (Mat (v@(_ :+ _) :+ vs)) = prependCol v $ topRow >: tails
     tails = transpose $ Mat $ fmap vecTail vs
     topRow = fmap vecHead vs
 
-subtractRow :: forall a n m. (KnownNat n, KnownNat m, Num a, Show a)
+subtractRow :: forall a n m. (KnownNat n, KnownNat m, Num a)
   => Matrix n m a -> Fin n -> Fin m -> Fin n -> Matrix n m a
-subtractRow mat row col currRow = T.trace (showMatrix mat++"subtractrow:"++showMatrix mat') mat'
+subtractRow mat row col currRow = mat'
   where selectedCols = finFrom col
         multVal = getAtMatrix currRow col mat
         values = map (\col' -> (col',getAtMatrix currRow col' mat - (multVal * getAtMatrix row col' mat))) selectedCols
@@ -176,34 +175,34 @@ subtractRow mat row col currRow = T.trace (showMatrix mat++"subtractrow:"++showM
 
 -- compared to original code, this doesn't take into account errors with floating point numbers
 -- as such, be careful
-calcFromElem :: forall a n m. (KnownNat n, KnownNat m, Fractional a, Show a) =>
+calcFromElem :: forall a n m. (KnownNat n, KnownNat m, Fractional a) =>
   Matrix n m a -> Fin n -> Fin m -> Matrix n m a
-calcFromElem mat row col = T.trace (showMatrix mat++"calcFromElem:"++showMatrix mat') mat'
+calcFromElem mat row col = mat'
   where selectedCols = finFrom col
         selectedValue = getAtMatrix row col mat
         values = map (\col' -> (col', getAtMatrix row col' mat / selectedValue)) selectedCols
         multipliedDownMatrix = foldr (\(col', val) newMat -> setAtMatrix row col' val newMat) mat values
         mat' = foldl' (\newMat row' -> subtractRow newMat row col row') multipliedDownMatrix (filter (/= row) fins)
 
-onCol :: forall a n m. (KnownNat n, KnownNat m, Fractional a, Eq a, Show a) =>
+onCol :: forall a n m. (KnownNat n, KnownNat m, Fractional a, Eq a) =>
   Matrix n m a -> Fin m -> S.Set (Fin n) -> Maybe (Matrix n m a, Fin n)
 onCol mat col previousRows = selectedRow >>= \row -> Just (calcFromElem mat row col, row)
   where selectedRow = find (\row -> (not $ elem row previousRows) && (getAtMatrix row col mat /= 0)) fins
 
-rank' :: (Show a) => Maybe (Matrix n m a, Fin n) -> Matrix n m a -> S.Set (Fin n) -> (Matrix n m a, S.Set (Fin n))
+rank' :: Maybe (Matrix n m a, Fin n) -> Matrix n m a -> S.Set (Fin n) -> (Matrix n m a, S.Set (Fin n))
 rank' Nothing mat set = (mat, set)
-rank' (Just (mat, row)) _ set = T.trace (showMatrix mat) (mat, S.insert row set)
+rank' (Just (mat, row)) _ set = (mat, S.insert row set)
 
 -- if you can find a way to check that n==m, and that the determinant of the matrix
 --  is non zero, you can take a shortcut for square matrices
 -- | matRows == matCols && det mat /= 0 = maxRank
 rank ::
-     forall a n m. (KnownNat n, KnownNat m, Fractional a, Eq a, Show a)
+     forall a n m. (KnownNat n, KnownNat m, Fractional a, Eq a)
   => Matrix n m a
   -> Integer
-rank mat = T.trace (show res) undefined
+rank mat = fromIntegral $ length setToCheck
   where cols = fins :: [Fin m]
-        res = foldl' (\(mat', set) col -> rank' (onCol mat' col set) mat' set) (mat, S.empty) cols
+        (_, setToCheck) = foldl' (\(mat', set) col -> rank' (onCol mat' col set) mat' set) (mat, S.empty) cols
 
 -- help from: https://github.com/janschultecom/idris-examples/blob/master/matrixmult.idr#L21
 -- helper function to multiply a vector over a matrix
