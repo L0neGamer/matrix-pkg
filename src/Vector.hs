@@ -108,6 +108,12 @@ generate f =
     OneS    -> VecSing (f FZero)
     SuccS _ -> f FZero :+ generate (f . FSucc)
 
+sizeAsFin :: KnownNat n => Vector n a -> Fin n
+sizeAsFin _ = maxBound
+
+size :: KnownNat n => Vector n a -> Integer
+size = finSize . sizeAsFin 
+
 reverse :: Vector n a -> Vector n a
 reverse vs = fromJust $ fromList (Prelude.reverse (toList vs)) vs
 
