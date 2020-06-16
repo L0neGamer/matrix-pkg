@@ -25,6 +25,7 @@ dependencies:
 - template-haskell
 - constraints
 - vector-space
+- containers
 
 library:
   source-dirs: src

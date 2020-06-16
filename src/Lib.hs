@@ -66,6 +66,8 @@ deriving instance Show (Fin n)
 
 deriving instance Eq (Fin n)
 
+deriving instance Ord (Fin n)
+
 type Two = 'Succ 'One
 
 type Three = 'Succ Two
@@ -90,25 +92,24 @@ type family Add n m where
   Add 'One n = 'Succ n
   Add ('Succ n) m = 'Succ (Add n m)
 
-instance Bounded (Fin 'One) where
+instance (KnownNat n) => Bounded (Fin n) where
   minBound = FZero
-  maxBound = FZero
+  maxBound =
+    case natSing @n of
+      OneS    -> FZero
+      SuccS _ -> FSucc maxBound
 
-instance Bounded (Fin n) => Bounded (Fin ('Succ n)) where
-  minBound = FZero
-  maxBound = FSucc (maxBound)
-
-instance Enum (Fin 'One) where
-  fromEnum = fromIntegral . finSize
-  toEnum 1 = FZero
-  toEnum _ = error "bad argument"
-
-instance (Enum (Fin n)) => Enum (Fin ('Succ n)) where
+instance (KnownNat n) => Enum (Fin n) where
   fromEnum = fromIntegral . finSize
   toEnum 1 = FZero
   toEnum n
-    | n > 1 = FSucc (toEnum (n - 1))
-    | otherwise = error "bad argument"
+    | n > 1 =
+      case natSing @n of
+        OneS    -> err
+        SuccS _ -> FSucc (toEnum (n - 1))
+    | otherwise = err
+    where
+      err = error $ "bad Int for toEnum in Finn: " ++ show n
 
 class LinearData v where
   (^*^) :: Num a => (v a) -> (v a) -> (v a)
@@ -117,6 +118,21 @@ class LinearData v where
 finSize :: Fin n -> Integer
 finSize FZero     = 1
 finSize (FSucc f) = 1 + finSize f
+
+fins ::
+     forall n. KnownNat n
+  => [Fin n]
+fins = (map (toEnum) . take (fromEnum (maxBound :: Fin n))) [1,2 ..]
+
+finFrom ::
+     forall n. KnownNat n
+  => Fin n
+  -> [Fin n]
+finFrom from = dropWhile (< from) fins
+
+natSSize :: NatS n -> Integer
+natSSize OneS      = 1
+natSSize (SuccS s) = 1 + natSSize s
 
 cantorPairing :: Integral a => a -> a -> a
 cantorPairing a b = div ((a + b) * (a + b + 1)) 2 + b
