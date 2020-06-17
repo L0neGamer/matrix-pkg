@@ -11,30 +11,30 @@ import           Lib
 import           Matrix
 import           Vector
 
-v1 :: Vector Five Integer
+v1 :: Vector Five Rational
 v1 = 1 :+ 2 :+ 3 :+ 4 :+ singleton 5
 
-v2 :: Vector Two Integer
+v2 :: Vector Two Rational
 v2 = 1 :+ singleton 2
 
-v3 :: Vector Six Integer
+v3 :: Vector Six Rational
 v3 = 0 :+ v1
 
-iden5 :: Matrix Five Five Integer
+iden5 :: Matrix Five Five Rational
 iden5 = identity
 
-m1 :: Matrix Two Five Integer
+m1 :: Matrix Two Five Rational
 m1 = Mat $ v1 :+ singleton v1
 
-m2 :: Matrix Two Two Integer
+m2 :: Matrix Two Two Rational
 m2 = consFrom (+) v2 v2
 
-m3 :: Matrix Six Six Integer
-m3 =
+m3 :: Matrix Six Six Rational
+m3 = fmap fromInteger $
   setAtMatrix (FSucc FZero) FZero 1 $ setAtMatrix FZero FZero 0 $
   generateMat (\x y -> cantorPairing (finSize x) (finSize y))
 
-m4 :: Matrix Two Two Integer
+m4 :: Matrix Two Two Rational
 m4 = Mat $ (1 :+ singleton 2) :+ singleton (3 :+ singleton 4)
 
 m5 :: Matrix Two Two Double
@@ -115,3 +115,13 @@ main = do
   printMatrix m6
   print $ det m6
   printMatrix $ fromJust $ inverseMatrix m6
+  putStrLn "Starting Rank testing"
+  let doPrint mat = (do printMatrix mat
+                        printMatrix $ fst $ rank' mat)
+  doPrint m1
+  doPrint m2
+  doPrint m3
+  doPrint m4
+  doPrint m5
+  doPrint m6
+  
