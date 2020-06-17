@@ -30,8 +30,9 @@ m2 :: Matrix Two Two Rational
 m2 = consFrom (+) v2 v2
 
 m3 :: Matrix Six Six Rational
-m3 = fmap fromInteger $
-  setAtMatrix (FSucc FZero) FZero 1 $ setAtMatrix FZero FZero 0 $
+m3 =
+  fmap fromInteger $ setAtMatrix (FSucc FZero) FZero 1 $
+  setAtMatrix FZero FZero 0 $
   generateMat (\x y -> cantorPairing (finSize x) (finSize y))
 
 m4 :: Matrix Two Two Rational
@@ -84,6 +85,9 @@ m6 =
   Mat $ (3 :+ 0 :+ singleton 2) :+ (2 :+ 0 :+ singleton (-2)) :+
   (singleton (0 :+ 1 :+ singleton 1))
 
+m7 :: Matrix Six Six Rational
+m7 = setAtMatrix maxBound FZero 14 $ setCol FZero (generate (\_ -> 0)) m3
+
 main :: IO ()
 main = do
   printMatrix iden5
@@ -116,12 +120,13 @@ main = do
   print $ det m6
   printMatrix $ fromJust $ inverseMatrix m6
   putStrLn "Starting Rank testing"
-  let doPrint mat = (do printMatrix mat
-                        printMatrix $ fst $ rank' mat)
+  let doPrint mat =
+        (do printMatrix mat
+            printMatrix $ fst $ rank' mat)
   doPrint m1
   doPrint m2
   doPrint m3
   doPrint m4
   doPrint m5
   doPrint m6
-  
+  doPrint m7

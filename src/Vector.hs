@@ -112,7 +112,7 @@ sizeAsFin :: KnownNat n => Vector n a -> Fin n
 sizeAsFin _ = maxBound
 
 size :: KnownNat n => Vector n a -> Integer
-size = finSize . sizeAsFin 
+size = finSize . sizeAsFin
 
 reverse :: Vector n a -> Vector n a
 reverse vs = fromJust $ fromList (Prelude.reverse (toList vs)) vs
@@ -170,11 +170,19 @@ zipWithFin f (a :+ as) (b :+ bs) = (f FZero a b) :+ zipWithFin (f . FSucc) as bs
 
 mapWithFin :: (Fin n -> a -> b) -> Vector n a -> Vector n b
 mapWithFin f (VecSing a) = VecSing (f FZero a)
-mapWithFin f (a :+ as) = (f FZero a) :+ mapWithFin (f . FSucc) as
+mapWithFin f (a :+ as)   = (f FZero a) :+ mapWithFin (f . FSucc) as
 
-applyWhen :: Fin n -> (Fin n -> Fin n -> Bool) -> (a -> b) -> (a -> b) -> Fin n -> a -> b
-applyWhen threshold comp f f' val | val `comp` threshold = f
-                                  | otherwise = f'
+applyWhen ::
+     Fin n
+  -> (Fin n -> Fin n -> Bool)
+  -> (a -> b)
+  -> (a -> b)
+  -> Fin n
+  -> a
+  -> b
+applyWhen threshold comp f f' val
+  | val `comp` threshold = f
+  | otherwise = f'
 
 -- set every item in a vector to a given value
 setVecTo :: a -> Vector n b -> Vector n a

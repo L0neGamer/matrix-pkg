@@ -98,15 +98,16 @@ identity = generateMat (\a b -> fromIntegral $ fromEnum (a == b))
 showMatrix :: Show a => Matrix n m a -> String
 showMatrix m = '[' : concat items'' ++ "\n]"
   where
-    items = toList $ toList <$> (getVec . fmap show) m
-    maxSize = maximum $ maximum $ map (map length) items
-    items' =
-      map
-        (("\n [" ++) .
-         init .
-         init .
-         foldr (\a b -> padList ' ' (maxSize - length a) a ++ ", " ++ b) "")
-        items
+    showedM@(Mat vs) = fmap show m
+    maxCols = fmap (maximum . fmap length) $ getVec $ transpose showedM
+    showedM' =
+      toList $
+      fmap
+        (toList .
+         mapWithFin
+           (\fin str -> padList ' ' (index fin maxCols - length str) str ++ ", "))
+        vs
+    items' = map (("\n [" ++) . init . init . foldr (++) "") showedM'
     items'' = map (++ "],") (init items') ++ [last items' ++ "]"]
 
 -- convenience function for printing a matrix
@@ -179,18 +180,6 @@ transpose (Mat (v@(_ :+ _) :+ vs)) = prependCol v $ topRow >: tails
     tails = transpose $ Mat $ fmap vecTail vs
     topRow = fmap vecHead vs
 
-subtractRow ::
-     forall a m. (KnownNat m, Num a)
-  => Vector m a
-  -> Fin m
-  -> Vector m a
-  -> Vector m a
-subtractRow row col currRow = valuesVec
-  where
-    multVal = index col currRow
-    valuesVec =
-      zipWithFin (applyWhen col (>=) (-) const) currRow (fmap (* multVal) row)
-
 -- compared to original code, this doesn't take into account errors with floating point numbers
 -- as such, be careful
 calcFromElem ::
@@ -200,13 +189,16 @@ calcFromElem ::
   -> Fin m
   -> Matrix n m a
 calcFromElem mat row col =
-  Mat $
-  mapWithFin (applyWhen row (/=) (subtractRow (getRow row mat') col) id) vs
+  Mat $ mapWithFin (applyWhen row (/=) subtractFromRow id) vs
   where
     selectedValue = getAtMatrix row col mat
-    valuesVec =
-      mapWithFin (applyWhen col (>=) (/ selectedValue) id) (getRow row mat)
+    valuesVec = fmap (/ selectedValue) (getRow row mat)
     mat'@(Mat vs) = setRow row valuesVec mat
+    subtractFromRow currRow =
+      zipWithFin
+        (applyWhen col (>=) (-) const)
+        currRow
+        (fmap (* index col currRow) (getRow row mat'))
 
 onCol ::
      forall a n m. (KnownNat n, KnownNat m, Fractional a, Eq a)
