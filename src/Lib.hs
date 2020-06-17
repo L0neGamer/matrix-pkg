@@ -122,7 +122,7 @@ finSize (FSucc f) = 1 + finSize f
 fins ::
      forall n. KnownNat n
   => [Fin n]
-fins = (map (toEnum) . take (fromEnum (maxBound :: Fin n))) [1,2 ..]
+fins = map toEnum $ take (fromEnum (maxBound :: Fin n)) [1,2 ..]
 
 finFrom ::
      forall n. KnownNat n

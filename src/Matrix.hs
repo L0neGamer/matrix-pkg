@@ -14,6 +14,7 @@ module Matrix where
 import           Control.Applicative
 import           Data.AdditiveGroup
 import           Data.Foldable       (find, foldl', toList)
+import           Data.Maybe          (maybe)
 import qualified Data.Set            as S
 import           Data.VectorSpace
 import           Lib
@@ -212,7 +213,7 @@ onCol mat col previousRows =
     colVec = getCol col mat
     selectedRow =
       find
-        (\row -> (not $ elem row previousRows) && (index row colVec /= 0))
+        (\row -> row `S.notMember` previousRows && index row colVec /= 0)
         fins
 
 -- if you can find a way to check that n==m, and that the determinant of the matrix
@@ -222,16 +223,13 @@ rank' ::
      forall a n m. (KnownNat n, KnownNat m, Fractional a, Eq a)
   => Matrix n m a
   -> (Matrix n m a, S.Set (Fin n))
-rank' mat = vals
+rank' mat = foldl' f (mat, S.empty) fins
   where
-    cols = fins :: [Fin m]
-    unNothinger Nothing mat' set         = (mat', set)
-    unNothinger (Just (mat', row)) _ set = (mat', S.insert row set)
-    vals =
-      foldl'
-        (\(mat', set) col -> unNothinger (onCol mat' col set) mat' set)
-        (mat, S.empty)
-        cols
+    f (mat', set) col =
+      maybe
+        (mat', set)
+        (\(mat'', row) -> (mat'', S.insert row set))
+        (onCol mat' col set)
 
 rank ::
      forall a n m. (KnownNat n, KnownNat m, Fractional a, Eq a)
