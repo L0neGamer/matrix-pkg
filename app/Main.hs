@@ -98,11 +98,11 @@ main = do
     -- putStrLn $ showMatrix m2
   printMatrix translation3Ex
   printMatrix $ translation3Ex *.*
-    (transpose $ Mat $ singleton (0 :+ 0 :+ 0 :+ singleton 1))
+    (Matrix.transpose $ Mat $ singleton (0 :+ 0 :+ 0 :+ singleton 1))
   printMatrix $ scale2Ex *.*
-    (transpose $ Mat $ singleton (1 :+ 1 :+ singleton 1))
+    (Matrix.transpose $ Mat $ singleton (1 :+ 1 :+ singleton 1))
   printMatrix $ translation2Ex *.* rotation2Ex *.* scale2Ex *.*
-    (transpose $ Mat $ singleton (1 :+ 1 :+ singleton 1))
+    (Matrix.transpose $ Mat $ singleton (1 :+ 1 :+ singleton 1))
   printMatrix $ translation2Ex *.* rotation2Ex *.* scale2Ex *.*
     (rotation2 (-pi / 2))
   print $ v1 `dotProd` v1

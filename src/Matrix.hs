@@ -100,7 +100,7 @@ showMatrix :: Show a => Matrix n m a -> String
 showMatrix m = '[' : concat items'' ++ "\n]"
   where
     showedM@(Mat vs) = fmap show m
-    maxCols = fmap (maximum . fmap length) $ getVec $ transpose showedM
+    maxCols = fmap (maximum . fmap length) $ getVec $ Matrix.transpose showedM
     showedM' =
       toList $
       fmap
@@ -174,12 +174,7 @@ trace m@(Mat ((a :+ _) :+ _))     = a + trace (subMatrix FZero FZero m)
 -- below are operations on matrices
 -- transpose a nxm matrix to an mxn matrix
 transpose :: Matrix n m a -> Matrix m n a
-transpose (Mat (VecSing a)) = Mat $ fmap singleton a
-transpose (Mat vs@((VecSing _) :+ _)) = Mat $ singleton $ fmap vecHead vs
-transpose (Mat (v@(_ :+ _) :+ vs)) = prependCol v $ topRow >: tails
-  where
-    tails = transpose $ Mat $ fmap vecTail vs
-    topRow = fmap vecHead vs
+transpose (Mat vs) = Mat $ Vector.transpose vs
 
 -- compared to original code, this doesn't take into account errors with floating point numbers
 -- as such, be careful
@@ -246,9 +241,9 @@ multVectMat xs (Mat (v :+ vs))   = dotProd xs v :+ multVectMat xs (Mat vs)
 -- multiply two matrices together
 multiplyMat :: Num a => Matrix n m a -> Matrix m o a -> Matrix n o a
 multiplyMat (Mat (VecSing vs)) b =
-  Mat $ (singleton . multVectMat vs . transpose) b
+  Mat $ (singleton . multVectMat vs . Matrix.transpose) b
 multiplyMat (Mat (v :+ vs)) b =
-  multVectMat v (transpose b) >: multiplyMat (Mat vs) b
+  multVectMat v (Matrix.transpose b) >: multiplyMat (Mat vs) b
 
 checkerboard :: Num a => Matrix n m a -> Matrix n m a
 checkerboard (Mat vs) =
@@ -270,7 +265,7 @@ inverseMatrix ::
   -> Maybe (Matrix n n a)
 inverseMatrix m
   | determinant == 0 = Nothing
-  | otherwise = Just $ transpose $ fmap (/ determinant) (cboardThenMOM m)
+  | otherwise = Just $ Matrix.transpose $ fmap (/ determinant) (cboardThenMOM m)
   where
     determinant = det m
     cboardThenMOM = checkerboard . matrixOfMinors
@@ -287,7 +282,7 @@ det m =
       Lib.zipWith (*) m $ (checkerboard . matrixOfMinors) m
 
 innerProduct :: Num a => Matrix n n a -> Matrix n n a -> Matrix n n a
-innerProduct m1 m2 = m1 *.* transpose m2
+innerProduct m1 m2 = m1 *.* Matrix.transpose m2
 
 -- above two lines are virtually identical, just to make compiler happy
 -- below are some convienience binary operators for matrices

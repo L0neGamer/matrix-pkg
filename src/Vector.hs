@@ -203,3 +203,11 @@ dotProd v1 v2 = sum $ v1 ^*^ v2
 crossProd :: Num a => Vector Three a -> Vector Three a -> Vector Three a
 crossProd (ax :+ (ay :+ (VecSing az))) (bx :+ (by :+ (VecSing bz))) =
   (ay * bz - az * by) :+ ((az * bx - ax * bz) :+ VecSing (ax * by - ay * bx))
+
+transpose :: Vector n (Vector m a) -> Vector m (Vector n a)
+transpose (VecSing a) = fmap singleton a
+transpose vs@((VecSing _) :+ _) = singleton $ fmap vecHead vs
+transpose (v@(_ :+ _) :+ vs) = zipWith (:+) v $ topRow :+ tails
+  where
+    tails = transpose $ fmap vecTail vs
+    topRow = fmap vecHead vs
