@@ -174,7 +174,7 @@ trace m@(Mat ((a :+ _) :+ _))     = a + trace (subMatrix FZero FZero m)
 -- below are operations on matrices
 -- transpose a nxm matrix to an mxn matrix
 transpose :: Matrix n m a -> Matrix m n a
-transpose (Mat vs) = Mat $ Vector.transpose vs
+transpose = Mat . Vector.transpose . getVec
 
 -- compared to original code, this doesn't take into account errors with floating point numbers
 -- as such, be careful
