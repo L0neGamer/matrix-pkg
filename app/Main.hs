@@ -8,7 +8,8 @@ import           Data.Foldable (toList)
 
 import           Data.Maybe
 import           Lib
-import           Matrix
+import           Matrix hiding (dotProd)
+import           Quantum
 import           Vector
 
 v1 :: Vector Five Rational
