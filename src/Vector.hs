@@ -211,3 +211,7 @@ transpose (v@(_ :+ _) :+ vs) = zipWith (:+) v $ topRow :+ tails
   where
     tails = transpose $ fmap vecTail vs
     topRow = fmap vecHead vs
+
+extendVector :: Vector n (Vector m a) -> Vector (Mul n m) a
+extendVector (VecSing v) = v
+extendVector (v :+ vs)   = v +++ extendVector vs
