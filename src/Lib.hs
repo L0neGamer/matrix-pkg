@@ -1,21 +1,3 @@
-{-# LANGUAGE DataKinds              #-}
-{-# LANGUAGE EmptyCase              #-}
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE GADTs                  #-}
-{-# LANGUAGE InstanceSigs           #-}
-{-# LANGUAGE LambdaCase             #-}
-{-# LANGUAGE RankNTypes             #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE StandaloneDeriving     #-}
-{-# LANGUAGE TypeApplications       #-}
-{-# LANGUAGE TypeFamilyDependencies #-}
-{-# LANGUAGE TypeInType             #-}
-{-# LANGUAGE TypeOperators          #-}
-{-# LANGUAGE UndecidableInstances   #-}
-{-# OPTIONS_GHC -Wall                       #-}
-
 module Lib where
 
 import           Data.Kind
@@ -125,13 +107,11 @@ finSize :: Fin n -> Integer
 finSize FZero     = 1
 finSize (FSucc f) = 1 + finSize f
 
-fins ::
-     forall n. KnownNat n
+fins :: forall n . KnownNat n
   => [Fin n]
 fins = map toEnum $ take (fromEnum (maxBound :: Fin n)) [1,2 ..]
 
-finFrom ::
-     forall n. KnownNat n
+finFrom :: forall n . KnownNat n
   => Fin n
   -> [Fin n]
 finFrom from = dropWhile (< from) fins

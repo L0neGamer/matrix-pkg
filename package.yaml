@@ -1,14 +1,12 @@
-name:                matrix-pkg
-version:             0.1.0.0
-github:              "githubuser/matrix-pkg"
-license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2020 Author name here"
+name: matrix-pkg
+version: 0.1.0.0
+github: "l0negamer/matrix-pkg"
+license: BSD3
+author: "L0neGamer"
 
 extra-source-files:
-- README.md
-- ChangeLog.md
+  - README.md
+  - ChangeLog.md
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -17,37 +15,55 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/matrix-pkg#readme>
+description: Please see the README on GitHub at <https://github.com/githubuser/matrix-pkg#readme>
 
 dependencies:
-- base >= 4.7 && < 5
-- singletons
-- template-haskell
-- constraints
-- vector-space
-- containers
+  - base >= 4.7 && < 5
+  - singletons
+  - template-haskell
+  - constraints
+  - vector-space
+  - containers
 
 library:
   source-dirs: src
+  default-extensions: TypeApplications
+    FlexibleInstances
+    GADTs
+    DataKinds
+    FunctionalDependencies
+    InstanceSigs
+    LambdaCase
+    TypeFamilyDependencies
+    EmptyCase
+    TypeOperators
+    UndecidableInstances
+    FlexibleContexts
+    TypeFamilies
+    RankNTypes
+    ScopedTypeVariables
+    StandaloneDeriving
+    TypeInType
 
 executables:
   matrix-pkg-exe:
-    main:                Main.hs
-    source-dirs:         app
+    main: Main.hs
+    source-dirs: app
     ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+      - -Wall
     dependencies:
-    - matrix-pkg
+      - matrix-pkg
 
 tests:
   matrix-pkg-test:
-    main:                Spec.hs
-    source-dirs:         test
+    main: Spec.hs
+    source-dirs: test
     ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
     dependencies:
-    - matrix-pkg
+      - matrix-pkg

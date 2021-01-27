@@ -1,7 +1,3 @@
-{-# LANGUAGE DataKinds #-}
-{-# OPTIONS_GHC -Wall                       #-}
-{-# OPTIONS_GHC -Werror=incomplete-patterns #-}
-
 module Main where
 
 import           Data.Foldable (toList)
