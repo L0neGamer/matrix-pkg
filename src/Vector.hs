@@ -31,7 +31,7 @@ old help:
 -- https://stackoverflow.com/questions/5802628/monad-instance-of-a-number-parameterised-vector
 -}
 data Vector (n :: Nat) a where
-  VecSing :: a -> Vector 'One a
+  VecSing :: a -> Vector One a
   (:+) :: a -> Vector n a -> Vector ('Succ n) a
 infixr 8 :+
 
@@ -125,7 +125,7 @@ fromList (a:as) (_ :+ vs) = fromList as vs >>= Just . (:+) a
 fromList _ _              = Nothing
 
 -- for unified construction
-singleton :: a -> Vector 'One a
+singleton :: a -> Vector One a
 singleton = VecSing
 
 -- adds an item to the end of a vector

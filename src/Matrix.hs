@@ -290,7 +290,7 @@ innerProduct m1 m2 = m1 *.* Matrix.transpose m2
 
 infixl 7 *.*
 
-dotProd :: Num a => Matrix n 'One a -> Matrix n 'One a -> a
+dotProd :: Num a => Matrix n One a -> Matrix n One a -> a
 dotProd m n = Vector.dotProd (getCol FZero m) (getCol FZero n)
 
 -- given a vector of matrices, stick them together as if they were
