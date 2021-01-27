@@ -20,7 +20,7 @@ import           Lib
 import           Matrix
 import           Vector             hiding (dotProd)
 
-type QVec = Matrix Two One (Complex Double)
+type Qubit = Matrix Two One (Complex Double)
 
 sqone :: Floating a => a
 sqone = 1 / sqrt 2
@@ -28,22 +28,22 @@ sqone = 1 / sqrt 2
 zero' :: (Num a, KnownNat n) => Matrix n One a
 zero' = generateMat (\x _ -> fromIntegral $ fromEnum $ x == FZero)
 
-zero :: QVec
+zero :: Qubit
 zero = zero'
 
 one' :: (Num a, KnownNat n) => Matrix ('Succ n) One a
 one' = generateMat (\x _ -> fromIntegral $ fromEnum $ x == (FSucc FZero))
 
-one :: QVec
+one :: Qubit
 one = one'
 
-compBasis :: Vector Two QVec
+compBasis :: Vector Two Qubit
 compBasis = zero :+ singleton one
 
-plus :: QVec
+plus :: Qubit
 plus = sqone *^ zero ^+^ sqone *^ one
 
-minus :: QVec
+minus :: Qubit
 minus = sqone *^ zero ^-^ sqone *^ one
 
 pauliX :: Num a => Matrix Two Two a
@@ -90,14 +90,14 @@ tensorProd n m = expandNested $ fmap (*^ m) n
 
 infixr 8 .*.
 
-conjTrans :: QVec -> Matrix One Two (Complex Double)
+conjTrans :: Qubit -> Matrix One Two (Complex Double)
 conjTrans v = fmap conjugate $ Matrix.transpose v
 
-innerProduct :: QVec -> QVec -> Complex Double
+innerProduct :: Qubit -> Qubit -> Complex Double
 innerProduct v v' = vecHead . vecHead . getVec $ conjTrans v *.* v'
 
-measureIn :: QVec -> Vector n QVec -> Vector n Double
+measureIn :: Qubit -> Vector n Qubit -> Vector n Double
 measureIn v bs = fmap (\b -> (** 2) $ magnitude $ Quantum.innerProduct v b) bs
 
-measure :: QVec -> Vector Two Double
+measure :: Qubit -> Vector Two Double
 measure v = measureIn v compBasis
