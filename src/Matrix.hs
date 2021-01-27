@@ -14,7 +14,6 @@ module Matrix where
 import           Control.Applicative
 import           Data.AdditiveGroup
 import           Data.Foldable       (find, foldl', toList)
-import           Data.Maybe          (maybe)
 import qualified Data.Set            as S
 import           Data.VectorSpace
 import           Lib
@@ -235,8 +234,8 @@ rank = fromIntegral . length . snd . rank'
 -- help from: https://github.com/janschultecom/idris-examples/blob/master/matrixmult.idr#L21
 -- helper function to multiply a vector over a matrix
 multVectMat :: Num a => Vector m a -> Matrix n m a -> Vector n a
-multVectMat xs (Mat (VecSing v)) = singleton $ dotProd xs v
-multVectMat xs (Mat (v :+ vs))   = dotProd xs v :+ multVectMat xs (Mat vs)
+multVectMat xs (Mat (VecSing v)) = singleton $ Vector.dotProd xs v
+multVectMat xs (Mat (v :+ vs)) = Vector.dotProd xs v :+ multVectMat xs (Mat vs)
 
 -- multiply two matrices together
 multiplyMat :: Num a => Matrix n m a -> Matrix m o a -> Matrix n o a
@@ -288,3 +287,23 @@ innerProduct m1 m2 = m1 *.* Matrix.transpose m2
 -- below are some convienience binary operators for matrices
 (*.*) :: Num a => Matrix n m a -> Matrix m o a -> Matrix n o a
 (*.*) = multiplyMat
+
+infixl 7 *.*
+
+dotProd :: Num a => Matrix n 'One a -> Matrix n 'One a -> a
+dotProd m n = Vector.dotProd (getCol FZero m) (getCol FZero n)
+
+-- given a vector of matrices, stick them together as if they were
+-- horizontal, ie column wise
+concatMatricesCol :: Vector n (Matrix i j a) -> Matrix i (Mul n j) a
+concatMatricesCol (VecSing m) = m
+concatMatricesCol (m :+ ms)   = m `concatCols` (concatMatricesCol ms)
+
+-- given a vector of matrices, stick them together as if they were
+-- vertical, ie row wise
+concatMatricesRow :: Vector n (Matrix i j a) -> Matrix (Mul n i) j a
+concatMatricesRow (VecSing m) = m
+concatMatricesRow (m :+ ms)   = m `concatRows` (concatMatricesRow ms)
+
+expandNested :: Matrix n m (Matrix i j a) -> Matrix (Mul n i) (Mul m j) a
+expandNested (Mat v) = concatMatricesRow $ fmap concatMatricesCol v
