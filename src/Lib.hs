@@ -68,6 +68,8 @@ deriving instance Eq (Fin n)
 
 deriving instance Ord (Fin n)
 
+type One = 'One
+
 type Two = 'Succ 'One
 
 type Three = 'Succ Two
@@ -91,6 +93,10 @@ type Ten = 'Succ Nine
 type family Add n m where
   Add 'One n = 'Succ n
   Add ('Succ n) m = 'Succ (Add n m)
+
+type family Mul n m where
+  Mul 'One m = m
+  Mul ('Succ n) m = Add m (Mul n m)
 
 instance (KnownNat n) => Bounded (Fin n) where
   minBound = FZero
