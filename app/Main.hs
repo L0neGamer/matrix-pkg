@@ -7,6 +7,7 @@ import           Lib
 import           Matrix
 import           Quantum
 import           Vector
+import PreciseFloat
 
 v1 :: Vector Five Rational
 v1 = 1 :+ 2 :+ 3 :+ 4 :+ singleton 5
