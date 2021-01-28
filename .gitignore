@@ -3,3 +3,4 @@
 matrix-pkg.cabal
 *.prof
 stack.yaml.lock
+runbrittany.*

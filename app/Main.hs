@@ -4,7 +4,7 @@ import           Data.Foldable (toList)
 
 import           Data.Maybe
 import           Lib
-import           Matrix hiding (dotProd)
+import           Matrix
 import           Quantum
 import           Vector
 
@@ -102,8 +102,8 @@ main = do
     (Matrix.transpose $ Mat $ singleton (1 :+ 1 :+ singleton 1))
   printMatrix $ translation2Ex *.* rotation2Ex *.* scale2Ex *.*
     (rotation2 (-pi / 2))
-  print $ v1 `dotProd` v1
-  print $ (1 :+ singleton (-1)) `dotProd` (1 :+ singleton (1 :: Integer))
+  print $ v1 Vector.<.> v1
+  print $ (1 :+ singleton (-1)) Vector.<.> (1 :+ singleton (1 :: Integer))
   print $ toList $
     crossProd (1 :+ 0 :+ singleton (0 :: Integer)) (0 :+ 1 :+ singleton 0)
   printMatrix m4

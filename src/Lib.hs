@@ -1,6 +1,8 @@
 module Lib where
 
 import           Data.Kind
+import           Prelude hiding (zipWith)
+import Data.AdditiveGroup
 
 {-
 Nat is for keeping the size of the vector in the type.
@@ -23,6 +25,9 @@ data Nat
 data NatS :: Nat -> Type where
   OneS :: NatS 'One
   SuccS :: KnownNat n => NatS n -> NatS ('Succ n)
+
+deriving instance Show (NatS a)
+deriving instance Eq (NatS a)
 
 class KnownNat (n :: Nat) where
   natSing :: NatS n
@@ -76,10 +81,12 @@ type family Add n m where
   Add 'One n = 'Succ n
   Add ('Succ n) m = 'Succ (Add n m)
 
+-- Multiplication, allowing ever more powerful operators
 type family Mul n m where
   Mul 'One m = m
   Mul ('Succ n) m = Add m (Mul n m)
 
+-- ways to generate minimums and maximums of Fins
 instance (KnownNat n) => Bounded (Fin n) where
   minBound = FZero
   maxBound =
@@ -87,8 +94,11 @@ instance (KnownNat n) => Bounded (Fin n) where
       OneS    -> FZero
       SuccS _ -> FSucc maxBound
 
+-- converting to and from Ints for Fins
+-- a bit unsafe, but that's fine, since it's 
+-- supposed to be
 instance (KnownNat n) => Enum (Fin n) where
-  fromEnum = fromIntegral . finSize
+  fromEnum = finSize
   toEnum 1 = FZero
   toEnum n
     | n > 1 =
@@ -99,27 +109,36 @@ instance (KnownNat n) => Enum (Fin n) where
     where
       err = error $ "bad Int for toEnum in Finn: " ++ show n
 
+-- define my own type class for operators between two 
+-- types
 class LinearData v where
   (^*^) :: Num a => (v a) -> (v a) -> (v a)
+  (^*^) = zipWith (*)
   zipWith :: (a -> b -> c) -> (v a) -> (v b) -> (v c)
 
-finSize :: Fin n -> Integer
+-- get the numerical representation of a Fin
+finSize :: Num a => Fin n -> a
 finSize FZero     = 1
 finSize (FSucc f) = 1 + finSize f
 
+-- create a list of Fins equal to the size of the type in 
+-- ascending order
 fins :: forall n . KnownNat n
   => [Fin n]
 fins = map toEnum $ take (fromEnum (maxBound :: Fin n)) [1,2 ..]
 
+-- get an ascending list of Fins greater than the given Fin
 finFrom :: forall n . KnownNat n
   => Fin n
   -> [Fin n]
 finFrom from = dropWhile (< from) fins
 
-natSSize :: NatS n -> Integer
+-- convert a NatS into a number
+natSSize :: Num a => NatS n -> a
 natSSize OneS      = 1
 natSSize (SuccS s) = 1 + natSSize s
 
+-- below are some extra functions which are just useful for testing
 cantorPairing :: Integral a => a -> a -> a
 cantorPairing a b = div ((a + b) * (a + b + 1)) 2 + b
 

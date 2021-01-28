@@ -4,9 +4,10 @@ import           Control.Applicative
 import           Data.AdditiveGroup
 import           Data.Foldable       (find, foldl', toList)
 import qualified Data.Set            as S
-import           Data.VectorSpace
+import           Data.VectorSpace hiding ((<.>))
 import           Lib
 import           Vector
+import Prelude hiding (zipWith)
 
 -- thanks to https://www.parsonsmatt.org/2017/04/26/basic_type_level_programming_in_haskell.html
 -- and to https://github.com/janschultecom/idris-examples for more complex examples
@@ -14,59 +15,67 @@ newtype Matrix n m a =
   Mat (Vector n (Vector m a))
   deriving (Eq, Ord, Show)
 
+-- define the LinearData type
+instance LinearData (Matrix n m) where
+  zipWith f (Mat vs) (Mat vs') = Mat $ zipWith (zipWith f) vs vs'
+
 instance Functor (Matrix n m) where
   fmap f (Mat v) = Mat $ fmap (fmap f) v
 
+-- fold over the matrix row by row
 instance Foldable (Matrix n m) where
   foldr f z (Mat (VecSing vs)) = foldr f z vs
   foldr f z (Mat (v :+ vs))    = (foldr f (foldr f z (Mat vs)) v)
 
+-- pure it just an appropriately sized matrix filled with 
 instance (KnownNat n, KnownNat m) => Applicative (Matrix n m) where
   pure a = Mat $ pure (pure a)
-  (<*>) =
-    case natSing @n of
-      OneS ->
-        \(Mat (VecSing fs)) (Mat (VecSing as)) -> Mat (VecSing (fs <*> as))
-      SuccS _ ->
-        \(Mat (fs :+ fss)) (Mat (as :+ ass)) ->
-          (fs <*> as) >: ((Mat fss) <*> (Mat ass))
+  (<*>) = zipWith ($)
 
+-- useful type class, may as well define it
 instance (Num a, KnownNat n, KnownNat m) => AdditiveGroup (Matrix n m a) where
   zeroV = pure 0
   negateV = fmap negate
   (^+^) = liftA2 (+)
 
+-- for scalar multiplication on matrices
 instance (Num a, KnownNat n, KnownNat m) => VectorSpace (Matrix n m a) where
   type Scalar (Matrix n m a) = a
   a *^ b = fmap (a *) b
 
+-- may as well implement monoid and semigroup again in the same way
 instance (Semigroup a) => Semigroup (Matrix n m a) where
-  (<>) = Lib.zipWith (<>)
+  (<>) = zipWith (<>)
 
 instance (Monoid a, KnownNat n, KnownNat m) => Monoid (Matrix n m a) where
   mempty = pure mempty
 
-instance LinearData (Matrix n m) where
-  (^*^) = Lib.zipWith (*)
-  zipWith f (Mat vs) (Mat vs') = Mat $ Lib.zipWith (Lib.zipWith f) vs vs'
-
+-- convert to lists for easy access, in theory
 toLists :: Matrix n m a -> [[a]]
 toLists (Mat v) = toList $ fmap toList v
 
-getVec :: Matrix n m a -> Vector n (Vector m a)
+-- get the vector that makes up the matrix
+getVec :: Matrix n m a -> 
+  Vector n (Vector m a)
 getVec (Mat v) = v
 
-(>:) :: Vector m a -> Matrix n m a -> Matrix ('Succ n) m a
+-- slap a vector onto the top of the matrix
+-- full definition later
+(>:) :: Vector m a -> 
+  Matrix n m a -> Matrix ('Succ n) m a
 (>:) = prependRow
 
+-- get the size of the dimensions of the matrix in Fins
 sizeAsFin :: (KnownNat n, KnownNat m) => Matrix n m a -> (Fin n, Fin m)
 sizeAsFin _ = (maxBound, maxBound)
 
-size :: (KnownNat n, KnownNat m) => Matrix n m a -> (Integer, Integer)
+-- get size of the matrix in terms of any number
+size :: (KnownNat n, KnownNat m, Num a) => Matrix n m a -> (a, a)
 size mat = (finSize fst', finSize snd')
   where
     (fst', snd') = Matrix.sizeAsFin mat
 
+-- generate a matrix from a given function that takes two Fins
 generateMat ::
      forall a n m. (KnownNat n, KnownNat m)
   => (Fin n -> Fin m -> a)
@@ -76,10 +85,12 @@ generateMat f =
     OneS    -> Mat $ VecSing (generate (f FZero))
     SuccS _ -> generate (f FZero) >: generateMat (f . FSucc)
 
+-- construct a matrix from a function taking two vars and two vectors
 consFrom :: (a -> b -> c) -> Vector n a -> Vector m b -> Matrix n m c
 consFrom f (VecSing a) bs = (Mat . singleton . fmap (f a)) bs
 consFrom f (a :+ as) bs   = fmap (f a) bs >: consFrom f as bs
 
+-- create the identity matrix
 identity :: (Num a, KnownNat n) => Matrix n n a
 identity = generateMat (\a b -> fromIntegral $ fromEnum (a == b))
 
@@ -148,6 +159,7 @@ setCol i (VecSing a) (Mat (VecSing v)) = Mat (VecSing (replace i a v))
 setCol i (a :+ as) (Mat (v :+ vs)) =
   prependRow (replace i a v) (setCol i as (Mat vs))
 
+-- gets rid of one row and column from a matrix
 subMatrix ::
      Fin ('Succ n)
   -> Fin ('Succ m)
@@ -155,6 +167,7 @@ subMatrix ::
   -> Matrix n m b
 subMatrix i j = dropCol j . dropRow i
 
+-- get the trace of a matrix
 trace :: (Num a) => Matrix n n a -> a
 trace (Mat (VecSing (VecSing a))) = a
 trace m@(Mat ((a :+ _) :+ _))     = a + trace (subMatrix FZero FZero m)
@@ -164,6 +177,7 @@ trace m@(Mat ((a :+ _) :+ _))     = a + trace (subMatrix FZero FZero m)
 transpose :: Matrix n m a -> Matrix m n a
 transpose = Mat . Vector.transpose . getVec
 
+-- TODO: work out what this does
 -- compared to original code, this doesn't take into account errors with floating point numbers
 -- as such, be careful
 calcFromElem ::
@@ -214,6 +228,7 @@ rank' mat = foldl' f (mat, S.empty) fins
         (\(mat'', row) -> (mat'', S.insert row set))
         (onCol mat' col set)
 
+-- finds how many linearly independent columns there are
 rank ::
      forall a n m. (KnownNat n, KnownNat m, Fractional a, Eq a)
   => Matrix n m a
@@ -222,21 +237,24 @@ rank = fromIntegral . length . snd . rank'
 
 -- help from: https://github.com/janschultecom/idris-examples/blob/master/matrixmult.idr#L21
 -- helper function to multiply a vector over a matrix
-multVectMat :: Num a => Vector m a -> Matrix n m a -> Vector n a
-multVectMat xs (Mat (VecSing v)) = singleton $ Vector.dotProd xs v
-multVectMat xs (Mat (v :+ vs)) = Vector.dotProd xs v :+ multVectMat xs (Mat vs)
+multVectMat :: (Num a) => Vector m a -> Matrix n m a -> Vector n a
+multVectMat xs (Mat (VecSing v)) = singleton $ xs <.> v
+multVectMat xs (Mat (v :+ vs)) = xs <.> v :+ multVectMat xs (Mat vs)
 
 -- multiply two matrices together
-multiplyMat :: Num a => Matrix n m a -> Matrix m o a -> Matrix n o a
+multiplyMat :: (Num a) => Matrix n m a -> Matrix m o a -> Matrix n o a
 multiplyMat (Mat (VecSing vs)) b =
   Mat $ (singleton . multVectMat vs . Matrix.transpose) b
 multiplyMat (Mat (v :+ vs)) b =
   multVectMat v (Matrix.transpose b) >: multiplyMat (Mat vs) b
 
+-- creates a checkerboard of negatives and positives
 checkerboard :: Num a => Matrix n m a -> Matrix n m a
 checkerboard (Mat vs) =
   Mat $ fmap (applyToRest negate) $ applyToRest (fmap negate) vs
 
+-- generate a matrix where each element is the determinant
+-- of the submatrices not including that row and column
 matrixOfMinors ::
      forall a n. (Num a, KnownNat n)
   => Matrix n n a
@@ -258,6 +276,7 @@ inverseMatrix m
     determinant = det m
     cboardThenMOM = checkerboard . matrixOfMinors
 
+-- find the determinant of a square matrix
 det ::
      forall a n. (Num a, KnownNat n)
   => Matrix n n a
@@ -269,6 +288,7 @@ det m =
       sum . vecHead . getVec $
       Lib.zipWith (*) m $ (checkerboard . matrixOfMinors) m
 
+-- find the inner product between two matrices
 innerProduct :: Num a => Matrix n n a -> Matrix n n a -> Matrix n n a
 innerProduct m1 m2 = m1 *.* Matrix.transpose m2
 
@@ -279,8 +299,9 @@ innerProduct m1 m2 = m1 *.* Matrix.transpose m2
 
 infixl 7 *.*
 
+-- find the dot product between two vector matrices
 dotProd :: Num a => Matrix n One a -> Matrix n One a -> a
-dotProd m n = Vector.dotProd (getCol FZero m) (getCol FZero n)
+dotProd m n = (getCol FZero m) <.> (getCol FZero n)
 
 -- given a vector of matrices, stick them together as if they were
 -- horizontal, ie column wise
@@ -294,5 +315,6 @@ concatMatricesRow :: Vector n (Matrix i j a) -> Matrix (Mul n i) j a
 concatMatricesRow (VecSing m) = m
 concatMatricesRow (m :+ ms)   = m `concatRows` (concatMatricesRow ms)
 
+-- given a matrix filled with matrices, flatten it
 expandNested :: Matrix n m (Matrix i j a) -> Matrix (Mul n i) (Mul m j) a
 expandNested (Mat v) = concatMatricesRow $ fmap concatMatricesCol v
