@@ -55,14 +55,12 @@ toLists :: Matrix n m a -> [[a]]
 toLists (Mat v) = toList $ fmap toList v
 
 -- get the vector that makes up the matrix
-getVec :: Matrix n m a -> 
-  Vector n (Vector m a)
+getVec :: Matrix n m a -> Vector n (Vector m a)
 getVec (Mat v) = v
 
 -- slap a vector onto the top of the matrix
 -- full definition later
-(>:) :: Vector m a -> 
-  Matrix n m a -> Matrix ('Succ n) m a
+(>:) :: Vector m a -> Matrix n m a -> Matrix ( 'Succ n) m a
 (>:) = prependRow
 
 -- get the size of the dimensions of the matrix in Fins
@@ -72,23 +70,22 @@ sizeAsFin _ = (maxBound, maxBound)
 -- get size of the matrix in terms of any number
 size :: (KnownNat n, KnownNat m, Num a) => Matrix n m a -> (a, a)
 size mat = (finSize fst', finSize snd')
-  where
-    (fst', snd') = Matrix.sizeAsFin mat
+  where (fst', snd') = Matrix.sizeAsFin mat
 
 -- generate a matrix from a given function that takes two Fins
-generateMat ::
-     forall a n m. (KnownNat n, KnownNat m)
+generateMat
+  :: forall a n m
+   . (KnownNat n, KnownNat m)
   => (Fin n -> Fin m -> a)
   -> Matrix n m a
-generateMat f =
-  case natSing @n of
-    OneS    -> Mat $ VecSing (generate (f FZero))
-    SuccS _ -> generate (f FZero) >: generateMat (f . FSucc)
+generateMat f = case natSing @n of
+  OneS    -> Mat $ VecSing (generate (f FZero))
+  SuccS _ -> generate (f FZero) >: generateMat (f . FSucc)
 
 -- construct a matrix from a function taking two vars and two vectors
 consFrom :: (a -> b -> c) -> Vector n a -> Vector m b -> Matrix n m c
 consFrom f (VecSing a) bs = (Mat . singleton . fmap (f a)) bs
-consFrom f (a :+ as) bs   = fmap (f a) bs >: consFrom f as bs
+consFrom f (a:+as    ) bs = fmap (f a) bs >: consFrom f as bs
 
 -- create the identity matrix
 identity :: (Num a, KnownNat n) => Matrix n n a
@@ -97,34 +94,32 @@ identity = generateMat (\a b -> fromIntegral $ fromEnum (a == b))
 -- show a matrix (with some prettifying)
 showMatrix :: Show a => Matrix n m a -> String
 showMatrix m = '[' : concat items'' ++ "\n]"
-  where
-    showedM@(Mat vs) = fmap show m
-    maxCols = fmap (maximum . fmap length) $ getVec $ Matrix.transpose showedM
-    showedM' =
-      toList $
-      fmap
-        (toList .
-         mapWithFin
-           (\fin str -> padList ' ' (index fin maxCols - length str) str ++ ", "))
-        vs
-    items' = map (("\n [" ++) . init . init . foldr (++) "") showedM'
-    items'' = map (++ "],") (init items') ++ [last items' ++ "]"]
+ where
+  showedM@(Mat vs) = fmap show m
+  maxCols = fmap (maximum . fmap length) $ getVec $ Matrix.transpose showedM
+  showedM' = toList $ fmap
+    ( toList . mapWithFin
+      (\fin str -> padList ' ' (index fin maxCols - length str) str ++ ", ")
+    )
+    vs
+  items'  = map (("\n [" ++) . init . init . foldr (++) "") showedM'
+  items'' = map (++ "],") (init items') ++ [last items' ++ "]"]
 
 -- convenience function for printing a matrix
 printMatrix :: Show a => Matrix n m a -> IO ()
 printMatrix = putStrLn . showMatrix
 
 -- below are manipulation of matrices
-appendRow :: Vector m a -> Matrix n m a -> Matrix ('Succ n) m a
+appendRow :: Vector m a -> Matrix n m a -> Matrix ( 'Succ n) m a
 appendRow v (Mat vs) = Mat $ appendVal v vs
 
-prependRow :: Vector m a -> Matrix n m a -> Matrix ('Succ n) m a
+prependRow :: Vector m a -> Matrix n m a -> Matrix ( 'Succ n) m a
 prependRow v (Mat vs) = Mat $ v :+ vs
 
-appendCol :: Vector n a -> Matrix n m a -> Matrix n ('Succ m) a
+appendCol :: Vector n a -> Matrix n m a -> Matrix n ( 'Succ m) a
 appendCol v (Mat vs) = Mat $ Lib.zipWith appendVal v vs
 
-prependCol :: Vector n a -> Matrix n m a -> Matrix n ('Succ m) a
+prependCol :: Vector n a -> Matrix n m a -> Matrix n ( 'Succ m) a
 prependCol v (Mat vs) = Mat $ Lib.zipWith (:+) v vs
 
 concatCols :: Matrix n m a -> Matrix n o a -> Matrix n (Add m o) a
@@ -133,10 +128,10 @@ concatCols (Mat vs) (Mat vs') = Mat $ Lib.zipWith (+++) vs vs'
 concatRows :: Matrix n m a -> Matrix o m a -> Matrix (Add n o) m a
 concatRows (Mat vs) (Mat vs') = Mat $ vs +++ vs'
 
-dropCol :: Fin ('Succ m) -> Matrix n ('Succ m) b -> Matrix n m b
+dropCol :: Fin ( 'Succ m) -> Matrix n ( 'Succ m) b -> Matrix n m b
 dropCol a (Mat vs) = Mat $ fmap (dropIndex a) vs
 
-dropRow :: Fin ('Succ n) -> Matrix ('Succ n) m b -> Matrix n m b
+dropRow :: Fin ( 'Succ n) -> Matrix ( 'Succ n) m b -> Matrix n m b
 dropRow a (Mat vs) = Mat $ dropIndex a vs
 
 setAtMatrix :: Fin n -> Fin m -> a -> Matrix n m a -> Matrix n m a
@@ -156,21 +151,21 @@ setRow i row (Mat v) = Mat (replace i row v)
 
 setCol :: Fin m -> Vector n a -> Matrix n m a -> Matrix n m a
 setCol i (VecSing a) (Mat (VecSing v)) = Mat (VecSing (replace i a v))
-setCol i (a :+ as) (Mat (v :+ vs)) =
+setCol i (a:+as) (Mat (v:+vs)) =
   prependRow (replace i a v) (setCol i as (Mat vs))
 
 -- gets rid of one row and column from a matrix
-subMatrix ::
-     Fin ('Succ n)
-  -> Fin ('Succ m)
-  -> Matrix ('Succ n) ('Succ m) b
+subMatrix
+  :: Fin ( 'Succ n)
+  -> Fin ( 'Succ m)
+  -> Matrix ( 'Succ n) ( 'Succ m) b
   -> Matrix n m b
 subMatrix i j = dropCol j . dropRow i
 
 -- get the trace of a matrix
 trace :: (Num a) => Matrix n n a -> a
-trace (Mat (VecSing (VecSing a))) = a
-trace m@(Mat ((a :+ _) :+ _))     = a + trace (subMatrix FZero FZero m)
+trace (  Mat (VecSing (VecSing a))) = a
+trace m@(Mat ((a:+_):+_          )) = a + trace (subMatrix FZero FZero m)
 
 -- below are operations on matrices
 -- transpose a nxm matrix to an mxn matrix
@@ -180,57 +175,56 @@ transpose = Mat . Vector.transpose . getVec
 -- TODO: work out what this does
 -- compared to original code, this doesn't take into account errors with floating point numbers
 -- as such, be careful
-calcFromElem ::
-     forall a n m. (KnownNat n, KnownNat m, Fractional a)
+calcFromElem
+  :: forall a n m
+   . (KnownNat n, KnownNat m, Fractional a)
   => Matrix n m a
   -> Fin n
   -> Fin m
   -> Matrix n m a
-calcFromElem mat row col =
-  Mat $ mapWithFin (applyWhen row (/=) subtractFromRow id) vs
-  where
-    selectedValue = getAtMatrix row col mat
-    valuesVec = fmap (/ selectedValue) (getRow row mat)
-    mat'@(Mat vs) = setRow row valuesVec mat
-    subtractFromRow currRow =
-      zipWithFin
-        (applyWhen col (>=) (-) const)
-        currRow
-        (fmap (* index col currRow) (getRow row mat'))
+calcFromElem mat row col = Mat
+  $ mapWithFin (applyWhen row (/=) subtractFromRow id) vs
+ where
+  selectedValue = getAtMatrix row col mat
+  valuesVec     = fmap (/ selectedValue) (getRow row mat)
+  mat'@(Mat vs) = setRow row valuesVec mat
+  subtractFromRow currRow = zipWithFin
+    (applyWhen col (>=) (-) const)
+    currRow
+    (fmap (* index col currRow) (getRow row mat'))
 
-onCol ::
-     forall a n m. (KnownNat n, KnownNat m, Fractional a, Eq a)
+onCol
+  :: forall a n m
+   . (KnownNat n, KnownNat m, Fractional a, Eq a)
   => Matrix n m a
   -> Fin m
   -> S.Set (Fin n)
   -> Maybe (Matrix n m a, Fin n)
-onCol mat col previousRows =
-  selectedRow >>= \row -> Just (calcFromElem mat row col, row)
-  where
-    colVec = getCol col mat
-    selectedRow =
-      find
-        (\row -> row `S.notMember` previousRows && index row colVec /= 0)
-        fins
+onCol mat col previousRows = selectedRow
+  >>= \row -> Just (calcFromElem mat row col, row)
+ where
+  colVec = getCol col mat
+  selectedRow =
+    find (\row -> row `S.notMember` previousRows && index row colVec /= 0) fins
 
 -- if you can find a way to check that n==m, and that the determinant of the matrix
 --  is non zero, you can take a shortcut for square matrices
 -- | matRows == matCols && det mat /= 0 = maxRank
-rank' ::
-     forall a n m. (KnownNat n, KnownNat m, Fractional a, Eq a)
+rank'
+  :: forall a n m
+   . (KnownNat n, KnownNat m, Fractional a, Eq a)
   => Matrix n m a
   -> (Matrix n m a, S.Set (Fin n))
 rank' mat = foldl' f (mat, S.empty) fins
-  where
-    f (mat', set) col =
-      maybe
-        (mat', set)
-        (\(mat'', row) -> (mat'', S.insert row set))
-        (onCol mat' col set)
+ where
+  f (mat', set) col = maybe (mat', set)
+                            (\(mat'', row) -> (mat'', S.insert row set))
+                            (onCol mat' col set)
 
 -- finds how many linearly independent columns there are
-rank ::
-     forall a n m. (KnownNat n, KnownNat m, Fractional a, Eq a)
+rank
+  :: forall a n m
+   . (KnownNat n, KnownNat m, Fractional a, Eq a)
   => Matrix n m a
   -> Integer
 rank = fromIntegral . length . snd . rank'
@@ -239,13 +233,13 @@ rank = fromIntegral . length . snd . rank'
 -- helper function to multiply a vector over a matrix
 multVectMat :: (Num a) => Vector m a -> Matrix n m a -> Vector n a
 multVectMat xs (Mat (VecSing v)) = singleton $ xs <.> v
-multVectMat xs (Mat (v :+ vs)) = xs <.> v :+ multVectMat xs (Mat vs)
+multVectMat xs (Mat (v:+vs    )) = xs <.> v :+ multVectMat xs (Mat vs)
 
 -- multiply two matrices together
 multiplyMat :: (Num a) => Matrix n m a -> Matrix m o a -> Matrix n o a
 multiplyMat (Mat (VecSing vs)) b =
   Mat $ (singleton . multVectMat vs . Matrix.transpose) b
-multiplyMat (Mat (v :+ vs)) b =
+multiplyMat (Mat (v:+vs)) b =
   multVectMat v (Matrix.transpose b) >: multiplyMat (Mat vs) b
 
 -- creates a checkerboard of negatives and positives
@@ -255,38 +249,32 @@ checkerboard (Mat vs) =
 
 -- generate a matrix where each element is the determinant
 -- of the submatrices not including that row and column
-matrixOfMinors ::
-     forall a n. (Num a, KnownNat n)
-  => Matrix n n a
-  -> Matrix n n a
-matrixOfMinors m =
-  case natSing @n of
-    OneS    -> Mat $ (VecSing . VecSing . det) m
-    SuccS _ -> fmap det $ generateMat (\i j -> subMatrix i j m)
+matrixOfMinors
+  :: forall a n . (Num a, KnownNat n) => Matrix n n a -> Matrix n n a
+matrixOfMinors m = case natSing @n of
+  OneS    -> Mat $ (VecSing . VecSing . det) m
+  SuccS _ -> fmap det $ generateMat (\i j -> subMatrix i j m)
 
 -- -- thanks to https://www.mathsisfun.com/algebra/matrix-inverse-minors-cofactors-adjugate.html
-inverseMatrix ::
-     forall a n. (Fractional a, Eq a, KnownNat n)
+inverseMatrix
+  :: forall a n
+   . (Fractional a, Eq a, KnownNat n)
   => Matrix n n a
   -> Maybe (Matrix n n a)
 inverseMatrix m
   | determinant == 0 = Nothing
   | otherwise = Just $ Matrix.transpose $ fmap (/ determinant) (cboardThenMOM m)
-  where
-    determinant = det m
-    cboardThenMOM = checkerboard . matrixOfMinors
+ where
+  determinant   = det m
+  cboardThenMOM = checkerboard . matrixOfMinors
 
 -- find the determinant of a square matrix
-det ::
-     forall a n. (Num a, KnownNat n)
-  => Matrix n n a
-  -> a
-det m =
-  case natSing @n of
-    OneS -> (vecHead . vecHead . getVec) m
-    SuccS _ ->
-      sum . vecHead . getVec $
-      Lib.zipWith (*) m $ (checkerboard . matrixOfMinors) m
+det :: forall a n . (Num a, KnownNat n) => Matrix n n a -> a
+det m = case natSing @n of
+  OneS -> (vecHead . vecHead . getVec) m
+  SuccS _ ->
+    sum . vecHead . getVec $ Lib.zipWith (*) m $ (checkerboard . matrixOfMinors)
+      m
 
 -- find the inner product between two matrices
 innerProduct :: Num a => Matrix n n a -> Matrix n n a -> Matrix n n a
@@ -307,13 +295,13 @@ dotProd m n = (getCol FZero m) <.> (getCol FZero n)
 -- horizontal, ie column wise
 concatMatricesCol :: Vector n (Matrix i j a) -> Matrix i (Mul n j) a
 concatMatricesCol (VecSing m) = m
-concatMatricesCol (m :+ ms)   = m `concatCols` (concatMatricesCol ms)
+concatMatricesCol (m:+ms    ) = m `concatCols` (concatMatricesCol ms)
 
 -- given a vector of matrices, stick them together as if they were
 -- vertical, ie row wise
 concatMatricesRow :: Vector n (Matrix i j a) -> Matrix (Mul n i) j a
 concatMatricesRow (VecSing m) = m
-concatMatricesRow (m :+ ms)   = m `concatRows` (concatMatricesRow ms)
+concatMatricesRow (m:+ms    ) = m `concatRows` (concatMatricesRow ms)
 
 -- given a matrix filled with matrices, flatten it
 expandNested :: Matrix n m (Matrix i j a) -> Matrix (Mul n i) (Mul m j) a

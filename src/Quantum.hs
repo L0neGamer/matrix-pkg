@@ -6,7 +6,7 @@ import qualified Data.Complex       as C (Complex ((:+)))
 import           Data.VectorSpace   hiding (magnitude)
 import           Lib
 import           Matrix
-import           Vector            
+import           Vector
 
 -- base type for qubits
 type Qubit = Matrix Two One (Complex Double)
@@ -22,7 +22,7 @@ zero' = generateMat (\x _ -> fromIntegral $ fromEnum $ x == FZero)
 zero :: Qubit
 zero = zero'
 
-one' :: (Num a, KnownNat n) => Matrix ('Succ n) One a
+one' :: (Num a, KnownNat n) => Matrix ( 'Succ n) One a
 one' = generateMat (\x _ -> fromIntegral $ fromEnum $ x == (FSucc FZero))
 
 one :: Qubit
@@ -51,29 +51,28 @@ hadamard =
 
 rotation :: Floating a => a -> Matrix Two Two a
 rotation n = Mat $ (c :+ singleton (-s)) :+ singleton (s :+ singleton c)
-  where
-    c = cos n
-    s = sin n
+ where
+  c = cos n
+  s = sin n
 
 cnot :: Num a => Matrix Four Four a
 cnot = generateMat cnotFunc
-  where
-    cnotFunc m' n' =
-      fromIntegral $ fromEnum $ (m <= 2 && m == n) || (m > 2 && n > 2 && m /= n)
-      where
-        (m, n) = (fromEnum m', fromEnum n')
+ where
+  cnotFunc m' n' =
+    fromIntegral $ fromEnum $ (m <= 2 && m == n) || (m > 2 && n > 2 && m /= n)
+    where (m, n) = (fromEnum m', fromEnum n')
 
 -- define the tensor product
-tensorProd ::
-     (Num a, KnownNat n, KnownNat m, KnownNat i, KnownNat j)
+tensorProd
+  :: (Num a, KnownNat n, KnownNat m, KnownNat i, KnownNat j)
   => Matrix n m a
   -> Matrix i j a
   -> Matrix (Mul n i) (Mul m j) a
 tensorProd n m = expandNested $ fmap (*^ m) n
 
 -- ease of use function for the tensor product
-(.*.) ::
-     (Num a, KnownNat n, KnownNat m, KnownNat i, KnownNat j)
+(.*.)
+  :: (Num a, KnownNat n, KnownNat m, KnownNat i, KnownNat j)
   => Matrix n m a
   -> Matrix i j a
   -> Matrix (Mul n i) (Mul m j) a

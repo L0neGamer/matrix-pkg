@@ -2,7 +2,6 @@ module Lib where
 
 import           Data.Kind
 import           Prelude hiding (zipWith)
-import Data.AdditiveGroup
 
 {-
 Nat is for keeping the size of the vector in the type.
@@ -123,14 +122,11 @@ finSize (FSucc f) = 1 + finSize f
 
 -- create a list of Fins equal to the size of the type in 
 -- ascending order
-fins :: forall n . KnownNat n
-  => [Fin n]
-fins = map toEnum $ take (fromEnum (maxBound :: Fin n)) [1,2 ..]
+fins :: forall n . KnownNat n => [Fin n]
+fins = map toEnum $ take (fromEnum (maxBound :: Fin n)) [1, 2 ..]
 
 -- get an ascending list of Fins greater than the given Fin
-finFrom :: forall n . KnownNat n
-  => Fin n
-  -> [Fin n]
+finFrom :: forall n . KnownNat n => Fin n -> [Fin n]
 finFrom from = dropWhile (< from) fins
 
 -- convert a NatS into a number
@@ -144,9 +140,9 @@ cantorPairing a b = div ((a + b) * (a + b + 1)) 2 + b
 
 inverseCantorPairing :: Integral a => a -> (a, a)
 inverseCantorPairing a = (w - a + t, a - t)
-  where
-    w = floor (sqrt (8 * fromIntegral a + 1) - 1 / 2 :: Double)
-    t = div (w ^ (2 :: Int) + w) 2
+ where
+  w = floor (sqrt (8 * fromIntegral a + 1) - 1 / 2 :: Double)
+  t = div (w ^ (2 :: Int) + w) 2
 
 padList :: a -> Int -> [a] -> [a]
 padList a i as = replicate i a ++ as
