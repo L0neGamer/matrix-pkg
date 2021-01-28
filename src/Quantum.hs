@@ -10,10 +10,11 @@ import           Vector
 
 -- base type for qubits
 type Qubit = Matrix Two One (Complex Double)
+type FourBit = Matrix Four One (Complex Double)
 
 -- for ease of use
-sqone :: Floating a => a
-sqone = 1 / sqrt 2
+sqtwo :: Floating a => a
+sqtwo = 1 / sqrt 2
 
 -- define some basic qubits/vectors
 zero' :: (Num a, KnownNat n) => Matrix n One a
@@ -29,10 +30,21 @@ one :: Qubit
 one = one'
 
 plus :: Qubit
-plus = sqone *^ zero ^+^ sqone *^ one
+plus = sqtwo *^ zero ^+^ sqtwo *^ one
 
 minus :: Qubit
-minus = sqone *^ zero ^-^ sqone *^ one
+minus = sqtwo *^ zero ^-^ sqtwo *^ one
+
+zz :: FourBit
+zz = zero .*. zero
+zo :: FourBit
+zo = zero .*. one
+oz :: FourBit
+oz = one .*. zero
+oo :: FourBit
+oo = one .*. one
+fourBits :: [FourBit]
+fourBits = [zz, zo, oz, oo]
 
 -- define some transformation matrices
 pauliX :: Num a => Matrix Two Two a
@@ -47,7 +59,7 @@ pauliZ = Mat $ (1 :+ singleton 0) :+ singleton (0 :+ singleton (-1))
 
 hadamard :: Floating a => Matrix Two Two a
 hadamard =
-  fmap (* sqone) $ Mat $ (1 :+ singleton 1) :+ singleton (1 :+ singleton (-1))
+  fmap (* sqtwo) $ Mat $ (1 :+ singleton 1) :+ singleton (1 :+ singleton (-1))
 
 rotation :: Floating a => a -> Matrix Two Two a
 rotation n = Mat $ (c :+ singleton (-s)) :+ singleton (s :+ singleton c)
@@ -61,6 +73,25 @@ cnot = generateMat cnotFunc
   cnotFunc m' n' =
     fromIntegral $ fromEnum $ (m <= 2 && m == n) || (m > 2 && n > 2 && m /= n)
     where (m, n) = (fromEnum m', fromEnum n')
+
+cnot' :: Num a => Matrix Four Four a
+cnot' =
+  Mat
+    $  (1 :+ 0 :+ 0 :+ singleton 0)
+    :+ (0 :+ 0 :+ 0 :+ singleton 1)
+    :+ (0 :+ 0 :+ 1 :+ singleton 0)
+    :+ singleton ((0 :+ 1 :+ 0 :+ singleton 0))
+
+iden2 :: Num a => Matrix Two Two a
+iden2 = identity
+
+swap :: Num a => Matrix Four Four a
+swap =
+  Mat
+    $  (1 :+ 0 :+ 0 :+ singleton 0)
+    :+ (0 :+ 0 :+ 1 :+ singleton 0)
+    :+ (0 :+ 1 :+ 0 :+ singleton 0)
+    :+ singleton ((0 :+ 0 :+ 0 :+ singleton 1))
 
 -- define the tensor product
 tensorProd
@@ -86,7 +117,10 @@ conjTrans :: Matrix n One (Complex Double) -> Matrix One n (Complex Double)
 conjTrans v = fmap conjugate $ Matrix.transpose v
 
 -- using conjTrans, find the inner product of two qubits
-innerProduct :: Matrix n One (Complex Double) -> Matrix n One (Complex Double) -> Complex Double
+innerProduct
+  :: Matrix n One (Complex Double)
+  -> Matrix n One (Complex Double)
+  -> Complex Double
 innerProduct v v' = vecHead . vecHead . getVec $ conjTrans v *.* v'
 
 -- define the computational basis
