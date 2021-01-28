@@ -134,6 +134,12 @@ natSSize :: Num a => NatS n -> a
 natSSize OneS      = 1
 natSSize (SuccS s) = 1 + natSSize s
 
+zipWithDefault :: (a -> b -> c) -> [a] -> [b] -> a -> b -> [c]
+zipWithDefault _ [] [] _ _ = []
+zipWithDefault f as@[] (b:bs) a' b' = f a' b : zipWithDefault f as bs a' b'
+zipWithDefault f (a:as) bs@[] a' b' = f a b' : zipWithDefault f as bs a' b'
+zipWithDefault f (a:as) (b:bs) a' b' = f a b : zipWithDefault f as bs a' b'
+
 -- below are some extra functions which are just useful for testing
 cantorPairing :: Integral a => a -> a -> a
 cantorPairing a b = div ((a + b) * (a + b + 1)) 2 + b

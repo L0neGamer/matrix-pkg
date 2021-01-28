@@ -107,13 +107,6 @@ reverse :: Vector n a -> Vector n a
 reverse v@(VecSing _) = v
 reverse (  a:+as    ) = appendVal a (reverse as)
 
--- takes a list that has size equal to the given vector,
---  and constructs a vector from the list items
-fromList :: [a] -> Vector n b -> Maybe (Vector n a)
-fromList [a   ] (VecSing _) = Just $ VecSing a
-fromList (a:as) (_:+vs    ) = fromList as vs >>= Just . (:+) a
-fromList _      _           = Nothing
-
 -- for unified construction
 singleton :: a -> Vector One a
 singleton = VecSing

@@ -82,11 +82,11 @@ infixr 8 .*.
 
 -- transpose and get the conjugate of the given qubit
 -- effectively, find the bra
-conjTrans :: Qubit -> Matrix One Two (Complex Double)
+conjTrans :: Matrix n One (Complex Double) -> Matrix One n (Complex Double)
 conjTrans v = fmap conjugate $ Matrix.transpose v
 
 -- using conjTrans, find the inner product of two qubits
-innerProduct :: Qubit -> Qubit -> Complex Double
+innerProduct :: Matrix n One (Complex Double) -> Matrix n One (Complex Double) -> Complex Double
 innerProduct v v' = vecHead . vecHead . getVec $ conjTrans v *.* v'
 
 -- define the computational basis
