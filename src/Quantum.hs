@@ -9,22 +9,26 @@ import           Matrix
 import           Vector
 
 -- base type for qubits
-type Qubit = Matrix Two One (Complex Double)
-type FourBit = Matrix Four One (Complex Double)
+type CVVec n = VVec n (Complex Double)
+type Qubit = CVVec Two
+type TwoQubit = CVVec Four
 
 -- for ease of use
 sqtwo :: Floating a => a
 sqtwo = 1 / sqrt 2
 
--- define some basic qubits/vectors
-zero' :: (Num a, KnownNat n) => Matrix n One a
-zero' = generateMat (\x _ -> fromIntegral $ fromEnum $ x == FZero)
+-- define some basic qubits/vectors, and qubit collections
+basisVec :: (Num a, KnownNat n) => Fin n -> VVec n a
+basisVec f = generateMat (\x _ -> fromIntegral $ fromEnum $ x == f)
+
+zero' :: (Num a, KnownNat n) => VVec n a
+zero' = basisVec FZero
 
 zero :: Qubit
 zero = zero'
 
-one' :: (Num a, KnownNat n) => Matrix ( 'Succ n) One a
-one' = generateMat (\x _ -> fromIntegral $ fromEnum $ x == (FSucc FZero))
+one' :: (Num a, KnownNat n) => VVec ( 'Succ n) a
+one' = basisVec (FSucc FZero)
 
 one :: Qubit
 one = one'
@@ -35,16 +39,17 @@ plus = sqtwo *^ zero ^+^ sqtwo *^ one
 minus :: Qubit
 minus = sqtwo *^ zero ^-^ sqtwo *^ one
 
-zz :: FourBit
-zz = zero .*. zero
-zo :: FourBit
-zo = zero .*. one
-oz :: FourBit
-oz = one .*. zero
-oo :: FourBit
-oo = one .*. one
-fourBits :: [FourBit]
-fourBits = [zz, zo, oz, oo]
+qubits :: [Qubit]
+qubits = [zero, one, plus, minus]
+
+makeTwoQubits :: [Qubit] -> [TwoQubit]
+makeTwoQubits qs = (.*.) <$> qs <*> qs
+
+twoQubits :: [TwoQubit]
+twoQubits = makeTwoQubits [zero, one]
+
+consQubit :: Complex Double -> Complex Double -> Qubit
+consQubit a b = Mat $ (singleton a) :+ (singleton $ singleton b)
 
 -- define some transformation matrices
 pauliX :: Num a => Matrix Two Two a
@@ -113,23 +118,26 @@ infixr 8 .*.
 
 -- transpose and get the conjugate of the given qubit
 -- effectively, find the bra
-conjTrans :: Matrix n One (Complex Double) -> Matrix One n (Complex Double)
+conjTrans :: CVVec n -> HVec n (Complex Double)
 conjTrans v = fmap conjugate $ Matrix.transpose v
 
 -- using conjTrans, find the inner product of two qubits
-innerProduct
-  :: Matrix n One (Complex Double)
-  -> Matrix n One (Complex Double)
-  -> Complex Double
-innerProduct v v' = vecHead . vecHead . getVec $ conjTrans v *.* v'
+innerProduct :: CVVec n -> CVVec n -> Complex Double
+innerProduct v v' = getVal $ conjTrans v *.* v'
+
+compBasis' :: (Num a, KnownNat n) => Vector n (VVec n a)
+compBasis' = generate basisVec
 
 -- define the computational basis
 compBasis :: Vector Two Qubit
-compBasis = zero :+ singleton one
+compBasis = compBasis'
+
+transformBasis :: (Num a, KnownNat n) => Matrix n n a -> Vector n (VVec n a)
+transformBasis m = fmap (m*.*) compBasis'
 
 -- measure in a given basis, returning probabilities for each
 -- basis vector
-measureIn :: Qubit -> Vector n Qubit -> Vector n Double
+measureIn :: CVVec m -> Vector n (CVVec m) -> Vector n Double
 measureIn v bs = fmap (\b -> (** 2) $ magnitude $ Quantum.innerProduct v b) bs
 
 -- measure in the computational basis, returning probabilities

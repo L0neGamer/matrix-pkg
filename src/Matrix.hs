@@ -15,6 +15,10 @@ newtype Matrix n m a =
   Mat (Vector n (Vector m a))
   deriving (Eq, Ord, Show)
 
+-- additional types for vertical and horizontal matrix vectors
+type VVec n a = Matrix n One a
+type HVec n a = Matrix One n a
+
 -- define the LinearData type
 instance LinearData (Matrix n m) where
   zipWith f (Mat vs) (Mat vs') = Mat $ zipWith (zipWith f) vs vs'
@@ -50,6 +54,13 @@ instance (Semigroup a) => Semigroup (Matrix n m a) where
 instance (Monoid a, KnownNat n, KnownNat m) => Monoid (Matrix n m a) where
   mempty = pure mempty
 
+showVVec :: Show a => VVec n a -> String
+showVVec v = "[\n" ++ foldr (\a s -> "    " ++ show a ++ "\n" ++ s) "]" v
+
+showHVec :: Show a => HVec n a -> String
+showHVec v =
+  "[\n" ++ init (foldr (\a s -> "    " ++ show a ++ "," ++ s) "" v) ++ "\n]"
+
 -- convert to lists for easy access, in theory
 toLists :: Matrix n m a -> [[a]]
 toLists (Mat v) = toList $ fmap toList v
@@ -57,6 +68,10 @@ toLists (Mat v) = toList $ fmap toList v
 -- get the vector that makes up the matrix
 getVec :: Matrix n m a -> Vector n (Vector m a)
 getVec (Mat v) = v
+
+-- get the single value in a matrix
+getVal :: Matrix One One a -> a
+getVal (Mat (VecSing (VecSing a))) = a
 
 -- slap a vector onto the top of the matrix
 -- full definition later
@@ -93,7 +108,9 @@ identity = generateMat (\a b -> fromIntegral $ fromEnum (a == b))
 
 -- show a matrix (with some prettifying)
 showMatrix :: Show a => Matrix n m a -> String
-showMatrix m = '[' : concat items'' ++ "\n]"
+showMatrix m@(Mat (VecSing _     )) = showHVec m
+showMatrix m@(Mat ((VecSing _):+_)) = showVVec m
+showMatrix m                        = '[' : concat items'' ++ "\n]"
  where
   showedM@(Mat vs) = fmap show m
   maxCols = fmap (maximum . fmap length) $ getVec $ Matrix.transpose showedM
@@ -271,10 +288,8 @@ inverseMatrix m
 -- find the determinant of a square matrix
 det :: forall a n . (Num a, KnownNat n) => Matrix n n a -> a
 det m = case natSing @n of
-  OneS -> (vecHead . vecHead . getVec) m
-  SuccS _ ->
-    sum . vecHead . getVec $ Lib.zipWith (*) m $ (checkerboard . matrixOfMinors)
-      m
+  OneS    -> getVal m
+  SuccS _ -> sum . vecHead . getVec $ m ^*^ (checkerboard . matrixOfMinors) m
 
 -- find the inner product between two matrices
 innerProduct :: Num a => Matrix n n a -> Matrix n n a -> Matrix n n a
