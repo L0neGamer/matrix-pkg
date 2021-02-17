@@ -66,6 +66,7 @@ hadamard :: Floating a => Matrix Two Two a
 hadamard =
   fmap (* sqtwo) $ Mat $ (1 :+ singleton 1) :+ singleton (1 :+ singleton (-1))
 
+-- a rotation matrix. produces a matrix which rotates by n radians
 rotation :: Floating a => a -> Matrix Two Two a
 rotation n = Mat $ (c :+ singleton (-s)) :+ singleton (s :+ singleton c)
  where
@@ -133,7 +134,7 @@ compBasis :: Vector Two Qubit
 compBasis = compBasis'
 
 transformBasis :: (Num a, KnownNat n) => Matrix n n a -> Vector n (VVec n a)
-transformBasis m = fmap (m*.*) compBasis'
+transformBasis m = fmap (m *.*) compBasis'
 
 -- measure in a given basis, returning probabilities for each
 -- basis vector
@@ -144,3 +145,19 @@ measureIn v bs = fmap (\b -> (** 2) $ magnitude $ Quantum.innerProduct v b) bs
 -- for each basis vector
 measure :: Qubit -> Vector Two Double
 measure v = measureIn v compBasis
+
+getDensityMatrix
+  :: (KnownNat m)
+  => [(CVVec m, Complex Double)]
+  -> Maybe (Matrix m m (Complex Double))
+getDensityMatrix qs
+  | sum (map snd qs) == 1 = Just
+  $ foldr (^+^) zeroed [ p *^ (f tq) | (tq, p) <- qs ]
+  | otherwise = Nothing
+ where
+  zeroed = generateMat (\_ _ -> 0)
+  f m = m *.* conjTrans m
+
+calcProbability :: Matrix m m (Complex Double) -> CVVec m -> Complex Double
+calcProbability densityMatrix base =
+  getVal $ conjTrans base *.* densityMatrix *.* base

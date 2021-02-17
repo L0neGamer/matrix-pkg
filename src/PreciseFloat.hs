@@ -3,6 +3,12 @@ module PreciseFloat where
 import Lib
 import qualified Data.Foldable as F (toList)
 
+zipWithDefault :: (a -> b -> c) -> [a] -> [b] -> a -> b -> [c]
+zipWithDefault _ []     []     _  _  = []
+zipWithDefault f as@[]  (b:bs) a' b' = f a' b : zipWithDefault f as bs a' b'
+zipWithDefault f (a:as) bs@[]  a' b' = f a b' : zipWithDefault f as bs a' b'
+zipWithDefault f (a:as) (b:bs) a' b' = f a b : zipWithDefault f as bs a' b'
+
 data Bit = BZero | BOne deriving (Show, Eq, Ord)
 -- type Binary = [Bit]
 data Sign = Plus | Minus deriving (Show, Eq)
