@@ -136,12 +136,6 @@ natSSize :: Num a => NatS n -> a
 natSSize OneS      = 1
 natSSize (SuccS s) = 1 + natSSize s
 
-zipWithDefault :: (a -> b -> c) -> [a] -> [b] -> a -> b -> [c]
-zipWithDefault _ []     []     _  _  = []
-zipWithDefault f as@[]  (b:bs) a' b' = f a' b : zipWithDefault f as bs a' b'
-zipWithDefault f (a:as) bs@[]  a' b' = f a b' : zipWithDefault f as bs a' b'
-zipWithDefault f (a:as) (b:bs) a' b' = f a b : zipWithDefault f as bs a' b'
-
 -- thank you to dixonary at https://discord.com/channels/189453139584221185/231852430701232128/806896486860324894
 getAt :: (Foldable t, Integral b) => b -> t a -> a -> a
 getAt i xs def = maybe def snd $ find ((== i) . fst) $ zip [0 ..] $ toList xs
