@@ -102,6 +102,15 @@ consFrom :: (a -> b -> c) -> Vector n a -> Vector m b -> Matrix n m c
 consFrom f (VecSing a) bs = (Mat . singleton . fmap (f a)) bs
 consFrom f (a:+as    ) bs = fmap (f a) bs >: consFrom f as bs
 
+matReplaceElems :: [[a]] -> Matrix n m a -> Matrix n m a
+matReplaceElems []    m                 = m
+matReplaceElems (a:_) (Mat (VecSing v)) = Mat $ VecSing (vecReplaceElems a v)
+matReplaceElems (a:as) (Mat (v:+vs)) =
+  (vecReplaceElems a v) >: matReplaceElems as (Mat vs)
+
+matFromListWithDefault :: (KnownNat n, KnownNat m) => a -> [[a]] -> Matrix n m a
+matFromListWithDefault a as = matReplaceElems as (generateMat (\_ _ -> a))
+
 -- create the identity matrix
 identity :: (Num a, KnownNat n) => Matrix n n a
 identity = generateMat (\a b -> fromIntegral $ fromEnum (a == b))

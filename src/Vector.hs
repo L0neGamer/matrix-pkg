@@ -93,6 +93,14 @@ generate f = case natSing @n of
   OneS    -> VecSing (f FZero)
   SuccS _ -> f FZero :+ generate (f . FSucc)
 
+vecReplaceElems :: [a] -> Vector n a -> Vector n a
+vecReplaceElems []     v           = v
+vecReplaceElems (a:_ ) (VecSing _) = VecSing a
+vecReplaceElems (a:as) (_:+vs    ) = a :+ vecReplaceElems as vs
+
+vecFromListWithDefault :: (KnownNat n) => a -> [a] -> Vector n a
+vecFromListWithDefault a as = vecReplaceElems as (generate (\_ -> a))
+
 -- get the size of a given vector as a Fin
 sizeAsFin :: KnownNat n => Vector n a -> Fin n
 sizeAsFin _ = maxBound
