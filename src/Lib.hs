@@ -1,7 +1,9 @@
 module Lib where
 
-import           Data.Kind
-import           Prelude hiding (zipWith)
+import Data.Kind
+import Prelude hiding (zipWith)
+import Data.Foldable (find, toList)
+import Data.Maybe (maybe)
 
 {-
 Nat is for keeping the size of the vector in the type.
@@ -135,10 +137,14 @@ natSSize OneS      = 1
 natSSize (SuccS s) = 1 + natSSize s
 
 zipWithDefault :: (a -> b -> c) -> [a] -> [b] -> a -> b -> [c]
-zipWithDefault _ [] [] _ _ = []
-zipWithDefault f as@[] (b:bs) a' b' = f a' b : zipWithDefault f as bs a' b'
-zipWithDefault f (a:as) bs@[] a' b' = f a b' : zipWithDefault f as bs a' b'
+zipWithDefault _ []     []     _  _  = []
+zipWithDefault f as@[]  (b:bs) a' b' = f a' b : zipWithDefault f as bs a' b'
+zipWithDefault f (a:as) bs@[]  a' b' = f a b' : zipWithDefault f as bs a' b'
 zipWithDefault f (a:as) (b:bs) a' b' = f a b : zipWithDefault f as bs a' b'
+
+-- thank you to dixonary at https://discord.com/channels/189453139584221185/231852430701232128/806896486860324894
+getAt :: (Foldable t, Integral b) => b -> t a -> a -> a
+getAt i xs def = maybe def snd $ find ((== i) . fst) $ zip [0 ..] $ toList xs
 
 -- below are some extra functions which are just useful for testing
 cantorPairing :: Integral a => a -> a -> a
