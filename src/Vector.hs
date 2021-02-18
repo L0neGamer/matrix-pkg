@@ -143,6 +143,10 @@ vecTail (_:+vs) = vs
 vecSplit :: Vector ( 'Succ n) a -> (a, Vector n a)
 vecSplit v = (vecHead v, vecTail v)
 
+vecDropLast :: Vector ( 'Succ n) a -> Vector n a
+vecDropLast (v:+(   VecSing _)) = VecSing v
+vecDropLast (v:+vs@(_:+_     )) = v :+ vecDropLast vs
+
 -- drop a particular index of a vector of more than one length
 dropIndex :: Fin ( 'Succ n) -> Vector ( 'Succ n) a -> Vector n a
 dropIndex FZero         (_:+vs            ) = vs
