@@ -147,6 +147,10 @@ vecDropLast :: Vector ( 'Succ n) a -> Vector n a
 vecDropLast (v:+(   VecSing _)) = VecSing v
 vecDropLast (v:+vs@(_:+_     )) = v :+ vecDropLast vs
 
+vecReplaceLast :: a -> Vector n a -> Vector n a
+vecReplaceLast a (VecSing _) = VecSing a
+vecReplaceLast a (a':+ as) =a':+ vecReplaceLast a as
+
 -- drop a particular index of a vector of more than one length
 dropIndex :: Fin ( 'Succ n) -> Vector ( 'Succ n) a -> Vector n a
 dropIndex FZero         (_:+vs            ) = vs
