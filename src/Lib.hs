@@ -76,27 +76,10 @@ type Nine = 'Succ Eight
 
 type Ten = 'Succ Nine
 
-type family If (b::Bool) a c where
-  If 'True a c = a
-  If 'False a c = c
-
-type family EQ (n::Nat) (m::Nat) where
-  EQ 'One 'One = 'True
-  EQ ('Succ _) 'One = 'False
-  EQ 'One ('Succ _) = 'False
-  EQ ('Succ n) ('Succ m) = EQ n m
-
 type family GT (n::Nat) (m::Nat) where
   GT ('Succ _) 'One = 'True
   GT 'One ('Succ _) = 'False
   GT ('Succ n) ('Succ m) = GT n m
-
-type family LT (n::Nat) (m::Nat) where
-  LT n m = GT m n
-
-type family And (n::Bool) (m::Bool) where
-  And 'True 'True = 'True
-  And _ _ = 'False
 
 --  look at https://wiki.haskell.org/Type_arithmetic
 -- http://archive.fo/JwMNI
