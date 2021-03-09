@@ -3,7 +3,6 @@ module Lib where
 import Data.Kind
 import Prelude hiding (zipWith)
 import Data.Foldable (find, toList)
-import Data.Maybe (maybe)
 
 {-
 Nat is for keeping the size of the vector in the type.
@@ -86,6 +85,11 @@ type family Add n m where
 type family Mul n m where
   Mul 'One m = m
   Mul ('Succ n) m = Add m (Mul n m)
+
+-- Exponentiation, allowing even even more powerful operators
+type family Exp n m where
+  Exp n 'One = n
+  Exp n ('Succ m) = Mul n (Exp n m)
 
 -- ways to generate minimums and maximums of Fins
 instance (KnownNat n) => Bounded (Fin n) where
