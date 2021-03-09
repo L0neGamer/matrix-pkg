@@ -50,7 +50,7 @@ instance Ord a => Ord (Vector n a) where
 -- pure generates a vector filled with the given value of the required length
 -- application uses my LinearData class to easily apply functions
 instance KnownNat n => Applicative (Vector n) where
-  pure a = generate (\_ -> a)
+  pure a = generateVec (\_ -> a)
   (<*>) = zipWith ($)
 
 instance KnownNat n => Monad (Vector n) where
@@ -88,10 +88,10 @@ instance (Monoid a, KnownNat n) => Monoid (Vector n a) where
 -- given a functions that takes Fins and returns `a`s, create a vector
 -- of the required length where each element of the vector is created
 -- from the given function
-generate :: forall a n . KnownNat n => (Fin n -> a) -> Vector n a
-generate f = case natSing @n of
+generateVec :: forall a n . KnownNat n => (Fin n -> a) -> Vector n a
+generateVec f = case natSing @n of
   OneS    -> VecSing (f FZero)
-  SuccS _ -> f FZero :+ generate (f . FSucc)
+  SuccS _ -> f FZero :+ generateVec (f . FSucc)
 
 vecReplaceElems :: [a] -> Vector n a -> Vector n a
 vecReplaceElems []     v           = v
@@ -99,7 +99,7 @@ vecReplaceElems (a:_ ) (VecSing _) = VecSing a
 vecReplaceElems (a:as) (_:+vs    ) = a :+ vecReplaceElems as vs
 
 vecFromListWithDefault :: (KnownNat n) => a -> [a] -> Vector n a
-vecFromListWithDefault a as = vecReplaceElems as (generate (\_ -> a))
+vecFromListWithDefault a as = vecReplaceElems as (generateVec (\_ -> a))
 
 -- get the size of a given vector as a Fin
 sizeAsFin :: KnownNat n => Vector n a -> Fin n

@@ -83,7 +83,7 @@ sizeAsFin :: (KnownNat n, KnownNat m) => Matrix n m a -> (Fin n, Fin m)
 sizeAsFin _ = (maxBound, maxBound)
 
 -- get size of the matrix in terms of any number
-size :: (KnownNat n, KnownNat m, Num a) => Matrix n m a -> (a, a)
+size :: (KnownNat n, KnownNat m, Num a) => Matrix n m b -> (a, a)
 size mat = (finSize fst', finSize snd')
   where (fst', snd') = Matrix.sizeAsFin mat
 
@@ -94,8 +94,8 @@ generateMat
   => (Fin n -> Fin m -> a)
   -> Matrix n m a
 generateMat f = case natSing @n of
-  OneS    -> Mat $ VecSing (generate (f FZero))
-  SuccS _ -> generate (f FZero) >: generateMat (f . FSucc)
+  OneS    -> Mat $ VecSing (generateVec (f FZero))
+  SuccS _ -> generateVec (f FZero) >: generateMat (f . FSucc)
 
 -- construct a matrix from a function taking two vars and two vectors
 consFrom :: (a -> b -> c) -> Vector n a -> Vector m b -> Matrix n m c
@@ -110,6 +110,9 @@ matReplaceElems (a:as) (Mat (v:+vs)) =
 
 matFromListWithDefault :: (KnownNat n, KnownNat m) => a -> [[a]] -> Matrix n m a
 matFromListWithDefault a as = matReplaceElems as (generateMat (\_ _ -> a))
+
+numMatFromList :: (KnownNat n, KnownNat m, Num a) => [[a]] -> Matrix n m a
+numMatFromList = matFromListWithDefault 0
 
 -- create the identity matrix
 identity :: (Num a, KnownNat n) => Matrix n n a
