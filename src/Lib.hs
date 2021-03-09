@@ -3,6 +3,7 @@ module Lib where
 import Data.Kind
 import Prelude hiding (zipWith)
 import Data.Foldable (find, toList)
+import GHC.TypeLits (TypeError, ErrorMessage(Text, (:<>:), ShowType))
 
 {-
 Nat is for keeping the size of the vector in the type.
@@ -75,6 +76,28 @@ type Nine = 'Succ Eight
 
 type Ten = 'Succ Nine
 
+type family If (b::Bool) a c where
+  If 'True a c = a
+  If 'False a c = c
+
+type family EQ (n::Nat) (m::Nat) where
+  EQ 'One 'One = 'True
+  EQ ('Succ _) 'One = 'False
+  EQ 'One ('Succ _) = 'False
+  EQ ('Succ n) ('Succ m) = EQ n m
+
+type family GT (n::Nat) (m::Nat) where
+  GT ('Succ _) 'One = 'True
+  GT 'One ('Succ _) = 'False
+  GT ('Succ n) ('Succ m) = GT n m
+
+type family LT (n::Nat) (m::Nat) where
+  LT n m = GT m n
+
+type family And (n::Bool) (m::Bool) where
+  And 'True 'True = 'True
+  And _ _ = 'False
+
 --  look at https://wiki.haskell.org/Type_arithmetic
 -- http://archive.fo/JwMNI
 type family Add n m where
@@ -90,6 +113,29 @@ type family Mul n m where
 type family Exp n m where
   Exp n 'One = n
   Exp n ('Succ m) = Mul n (Exp n m)
+
+-- this allows for use of inference of the exponential type
+--  thanks to finnbar and dixonary!
+type family RLog n m x i where
+  RLog n m m i = i
+  RLog n m x i = RLogBool n m x i (GT m x)
+
+-- this is a helper type so that we can error out properly
+type family RLogBool n m x i (mx :: Bool) where
+  RLogBool n m x i 'True = (RLog n m (Mul n x) ('Succ i))
+  RLogBool n m x i 'False = TypeError
+    (
+      'Text "Recursed too deep! Base (" ':<>:
+      'ShowType n ':<>:
+      'Text ") does not divide evenly into (" ':<>:
+      'ShowType m ':<>:
+      'Text ")"
+      )
+
+-- wrapping some stuff up in syntactic sugar
+type ReverseLog m n = RLog m n m 'One
+-- the thing we wanna constrain on
+type GetExp n i = ReverseLog n (Exp n i)
 
 -- ways to generate minimums and maximums of Fins
 instance (KnownNat n) => Bounded (Fin n) where

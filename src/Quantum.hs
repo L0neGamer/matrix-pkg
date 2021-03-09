@@ -1,5 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-
 module Quantum where
 
 import           Data.AdditiveGroup
@@ -9,6 +7,7 @@ import           Data.VectorSpace   hiding (magnitude)
 import           Lib
 import           Matrix
 import           Vector
+import Data.Foldable (foldl')
 
 -- base type for qubits
 type CDouble = Complex Double
@@ -24,16 +23,16 @@ i :: Num a => Complex a
 i = 0 C.:+ 1
 
 -- define some basic qubits/vectors, and qubit collections
-basisVec :: (Num a, KnownNat n) => Fin n -> VVec n a
+basisVec :: forall n a . (Num a, KnownNat n) => Fin n -> VVec n a
 basisVec f = generateMat (\x _ -> fromIntegral $ fromEnum $ x == f)
 
-zero' :: (Num a, KnownNat n) => VVec n a
+zero' :: forall n a . (Num a, KnownNat n) => VVec n a
 zero' = basisVec FZero
 
 zero :: Qubit
 zero = zero'
 
-one' :: (Num a, KnownNat n) => VVec ( 'Succ n) a
+one' :: forall n a . (Num a, KnownNat n) => VVec ( 'Succ n) a
 one' = basisVec (FSucc FZero)
 
 one :: Qubit
@@ -56,6 +55,9 @@ twoQubits = makeTwoQubits [zero, one]
 
 consQubit :: CDouble -> CDouble -> Qubit
 consQubit a b = numMatFromList [[a], [b]]
+
+consCVVec :: forall n . (KnownNat n) => [CDouble] -> CVVec n
+consCVVec ns = numMatFromList @n @One (fmap (: []) ns)
 
 -- define some transformation matrices
 pauliX :: Num a => Matrix Two Two a
@@ -110,12 +112,17 @@ infixr 8 .*.
 -- for example, to tensor product matrix `a` gate three times, do `tensorPower @Three a`
 tensorPower
   :: forall i a n m
-   . (Num a, KnownNat i)
+   . (Num a, KnownNat i, i ~ GetExp n i, i ~ GetExp n i)
   => Matrix n m a
   -> Matrix (Exp n i) (Exp m i) a
-tensorPower m = tensorPower' m (natSing :: NatS i)
+tensorPower m = tensorPower' @i m natSing
 
-tensorPower' :: Num a => Matrix n m a -> NatS i -> Matrix (Exp n i) (Exp m i) a
+tensorPower'
+  :: forall i n m a
+   . Num a
+  => Matrix n m a
+  -> NatS i
+  -> Matrix (Exp n i) (Exp m i) a
 tensorPower' m (OneS   ) = m
 tensorPower' m (SuccS s) = m .*. (tensorPower' m s)
 
@@ -128,7 +135,7 @@ conjTrans v = fmap conjugate $ Matrix.transpose v
 innerProduct :: CVVec n -> CVVec n -> CDouble
 innerProduct v v' = getVal $ conjTrans v *.* v'
 
-compBasis' :: (Num a, KnownNat n) => Vector n (VVec n a)
+compBasis' :: forall n a . (Num a, KnownNat n) => Vector n (VVec n a)
 compBasis' = generateVec basisVec
 
 -- define the computational basis
@@ -166,3 +173,17 @@ getDensityMatrix qs
 calcProbability :: Matrix m m CDouble -> CVVec m -> CDouble
 calcProbability densityMatrix base =
   getVal $ conjTrans base *.* densityMatrix *.* base
+
+chi :: CVVec m -> CVVec m -> CDouble
+chi s x = (-1) ** (Quantum.innerProduct s x)
+
+vecToFunc :: (KnownNat m) => CVVec m -> Matrix m m CDouble
+vecToFunc v =
+  generateMat (\f f' -> if f == f' then getAtMatrix f FZero v else 0)
+
+fhat :: (KnownNat n) => (CVVec n -> CDouble) -> CVVec n -> CDouble
+fhat f s =
+  (foldl' (\b a -> b + (apply a)) 0 compBasis') / (2 ** (fst $ Matrix.size s))
+ where
+  chi_s = chi s
+  apply x = (f x) * chi_s x
