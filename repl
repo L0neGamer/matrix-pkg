@@ -1,1 +1,1 @@
-stack repl --ghc-options -XDataKinds
+stack repl --ghc-options -fprint-explicit-kinds --ghc-options -fprint-explicit-foralls
