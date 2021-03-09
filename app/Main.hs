@@ -89,7 +89,7 @@ m6 =
     :+ (singleton (0 :+ 1 :+ singleton 1))
 
 m7 :: Matrix Six Six Rational
-m7 = setAtMatrix maxBound FZero 14 $ setCol FZero (generate (\_ -> 0)) m3
+m7 = setAtMatrix maxBound FZero 14 $ setCol FZero (generateVec (\_ -> 0)) m3
 
 main :: IO ()
 main = do
