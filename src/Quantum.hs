@@ -112,10 +112,17 @@ infixr 8 .*.
 -- for example, to tensor product matrix `a` gate three times, do `tensorPower @Three a`
 tensorPower
   :: forall i a n m
-   . (Num a, KnownNat i, i ~ GetExp n i, i ~ GetExp n i)
-  => Matrix n m a
-  -> Matrix (Exp n i) (Exp m i) a
+   . (Num a, KnownNat i, i ~ GetExp ( 'Succ n) i, i ~ GetExp ( 'Succ m) i)
+  => Matrix ( 'Succ n) ( 'Succ m) a
+  -> Matrix (Exp ( 'Succ n) i) (Exp ( 'Succ m) i) a
 tensorPower m = tensorPower' @i m natSing
+
+tensorPowerVVec
+  :: forall i a n
+   . (Num a, KnownNat i, i ~ GetExp ( 'Succ n) i)
+  => Matrix ( 'Succ n) 'One a
+  -> Matrix (Exp ( 'Succ n) i) (Exp 'One i) a
+tensorPowerVVec m = tensorPower' @i m natSing
 
 tensorPower'
   :: forall i n m a

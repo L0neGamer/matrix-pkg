@@ -116,7 +116,7 @@ type family RLogBool n m x i (mx :: Bool) where
       )
 
 -- wrapping some stuff up in syntactic sugar
-type ReverseLog m n = RLog m n m 'One
+type ReverseLog n m = RLog n m n 'One
 -- the thing we wanna constrain on
 type GetExp n i = ReverseLog n (Exp n i)
 
