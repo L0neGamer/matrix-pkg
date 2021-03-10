@@ -32,7 +32,7 @@ zero' = basisVec FZero
 zero :: Qubit
 zero = zero'
 
-one' :: forall n a . (Num a, KnownNat n) => VVec ( 'Succ n) a
+one' :: forall n a m . (Num a, KnownNat n, n ~ 'Succ m) => VVec n a
 one' = basisVec (FSucc FZero)
 
 one :: Qubit
@@ -89,12 +89,7 @@ iden2 :: Num a => Matrix Two Two a
 iden2 = identity
 
 swap :: Num a => Matrix Four Four a
-swap =
-  Mat
-    $  (1 :+ 0 :+ 0 :+ singleton 0)
-    :+ (0 :+ 0 :+ 1 :+ singleton 0)
-    :+ (0 :+ 1 :+ 0 :+ singleton 0)
-    :+ singleton ((0 :+ 0 :+ 0 :+ singleton 1))
+swap = numMatFromList [[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]]
 
 -- define the tensor product
 tensorProd
@@ -107,9 +102,12 @@ tensorProd n m = expandNested $ fmap (\a -> fmap (a *) m) n
 
 infixr 8 .*.
 
--- apply the tensor product a given number of times.
+-- apply the tensor product a number of times.
 -- to use this function, use `tensorPower @(type number) matrix`
 -- for example, to tensor product matrix `a` gate three times, do `tensorPower @Three a`
+-- If used in relation to other matrices, tensorPower can infer 
+--  the `i` value, which is pretty neat
+-- Only works on non-vector matrices - see tensorPowerVVec for column vec variant
 tensorPower
   :: forall i a n m
    . (Num a, KnownNat i, i ~ GetExp ( 'Succ n) i, i ~ GetExp ( 'Succ m) i)
@@ -117,6 +115,8 @@ tensorPower
   -> Matrix (Exp ( 'Succ n) i) (Exp ( 'Succ m) i) a
 tensorPower m = tensorPower' @i m natSing
 
+-- apply the tensor product a number of times on a column vector
+-- very similar to tensorPower, but only works on column vectors
 tensorPowerVVec
   :: forall i a n
    . (Num a, KnownNat i, i ~ GetExp ( 'Succ n) i)
@@ -124,6 +124,7 @@ tensorPowerVVec
   -> Matrix (Exp ( 'Succ n) i) (Exp 'One i) a
 tensorPowerVVec m = tensorPower' @i m natSing
 
+-- helper function for tensorPower
 tensorPower'
   :: forall i n m a
    . Num a
@@ -142,6 +143,7 @@ conjTrans v = fmap conjugate $ Matrix.transpose v
 innerProduct :: CVVec n -> CVVec n -> CDouble
 innerProduct v v' = getVal $ conjTrans v *.* v'
 
+-- generate all basis vectors for a given dimension
 compBasis' :: forall n a . (Num a, KnownNat n) => Vector n (VVec n a)
 compBasis' = generateVec basisVec
 
@@ -149,7 +151,8 @@ compBasis' = generateVec basisVec
 compBasis :: Vector Two Qubit
 compBasis = compBasis'
 
-transformBasis :: (Num a, KnownNat n) => Matrix n n a -> Vector n (VVec n a)
+-- apply a transformation matrix to the computational basis
+transformBasis :: forall n a . (Num a, KnownNat n) => Matrix n n a -> Vector n (VVec n a)
 transformBasis m = fmap (m *.*) compBasis'
 
 -- measure in a given basis, returning probabilities for each
@@ -163,7 +166,7 @@ measure :: Qubit -> Vector Two Double
 measure v = measureIn v compBasis
 
 -- given a list of vector-probability pairs, return Just the density matrix
---  of all if the probabilities sum up to 1; else return Nothing
+--  if the probabilities sum up to 1; else return Nothing
 getDensityMatrix
   :: (KnownNat m) => [(CVVec m, CDouble)] -> Maybe (Matrix m m CDouble)
 getDensityMatrix qs
@@ -174,7 +177,7 @@ getDensityMatrix qs
   zeroed = generateMat (\_ _ -> 0)
   f m = m *.* conjTrans m
 
--- given a probability matrix (as seen in previous function),
+-- given a density matrix (as seen in previous function),
 --  and a complex number vector, return the probability of
 --  seeing that vector
 calcProbability :: Matrix m m CDouble -> CVVec m -> CDouble
