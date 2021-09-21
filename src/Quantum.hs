@@ -56,8 +56,8 @@ twoQubits = makeTwoQubits [zero, one]
 consQubit :: CDouble -> CDouble -> Qubit
 consQubit a b = numMatFromList [[a], [b]]
 
-consCVVec :: forall n . (KnownNat n) => [CDouble] -> CVVec n
-consCVVec ns = numMatFromList @n @One (fmap (: []) ns)
+consVVec :: forall n a . (KnownNat n, Num a) => [a] -> VVec n a
+consVVec ns = numMatFromList @n @One (fmap (: []) ns)
 
 -- define some transformation matrices
 pauliX :: Num a => Matrix Two Two a
@@ -70,7 +70,7 @@ pauliZ :: Num a => Matrix Two Two a
 pauliZ = numMatFromList [[1, 0], [0, -1]]
 
 hadamard :: Floating a => Matrix Two Two a
-hadamard = fmap (* sqtwo) $ numMatFromList [[1, 1], [1, -1]]
+hadamard = (* sqtwo) <$> numMatFromList [[1, 1], [1, -1]]
 
 -- a rotation matrix. produces a matrix which rotates by n radians
 rotation :: Floating a => a -> Matrix Two Two a
@@ -131,13 +131,13 @@ tensorPower'
   => Matrix n m a
   -> NatS i
   -> Matrix (Exp n i) (Exp m i) a
-tensorPower' m (OneS   ) = m
-tensorPower' m (SuccS s) = m .*. (tensorPower' m s)
+tensorPower' m OneS      = m
+tensorPower' m (SuccS s) = m .*. tensorPower' m s
 
 -- transpose and get the conjugate of the given qubit
 -- effectively, find the bra
 conjTrans :: CVVec n -> HVec n CDouble
-conjTrans v = fmap conjugate $ Matrix.transpose v
+conjTrans v = conjugate <$> Matrix.transpose v
 
 -- using conjTrans, find the inner product of two qubits
 innerProduct :: CVVec n -> CVVec n -> CDouble
@@ -152,13 +152,14 @@ compBasis :: Vector Two Qubit
 compBasis = compBasis'
 
 -- apply a transformation matrix to the computational basis
-transformBasis :: forall n a . (Num a, KnownNat n) => Matrix n n a -> Vector n (VVec n a)
+transformBasis
+  :: forall n a . (Num a, KnownNat n) => Matrix n n a -> Vector n (VVec n a)
 transformBasis m = fmap (m *.*) compBasis'
 
 -- measure in a given basis, returning probabilities for each
 -- basis vector
 measureIn :: CVVec m -> Vector n (CVVec m) -> Vector n Double
-measureIn v bs = fmap (\b -> (** 2) $ magnitude $ Quantum.innerProduct v b) bs
+measureIn v = fmap ((** 2) . magnitude . Quantum.innerProduct v)
 
 -- measure in the computational basis, returning probabilities
 -- for each basis vector
@@ -171,7 +172,7 @@ getDensityMatrix
   :: (KnownNat m) => [(CVVec m, CDouble)] -> Maybe (Matrix m m CDouble)
 getDensityMatrix qs
   | sum (map snd qs) == 1 = Just
-  $ foldr (^+^) zeroed [ p *^ (f tq) | (tq, p) <- qs ]
+  $ foldr (^+^) zeroed [ p *^ f tq | (tq, p) <- qs ]
   | otherwise = Nothing
  where
   zeroed = generateMat (\_ _ -> 0)
@@ -184,16 +185,49 @@ calcProbability :: Matrix m m CDouble -> CVVec m -> CDouble
 calcProbability densityMatrix base =
   getVal $ conjTrans base *.* densityMatrix *.* base
 
-chi :: CVVec m -> CVVec m -> CDouble
-chi s x = (-1) ** (Quantum.innerProduct s x)
+chi_f :: CVVec m -> CVVec m -> CDouble
+chi_f s x = (-1) ** Quantum.innerProduct s x
 
-vecToFunc :: (KnownNat m) => CVVec m -> Matrix m m CDouble
-vecToFunc v =
-  generateMat (\f f' -> if f == f' then getAtMatrix f FZero v else 0)
+-- vecToFunc :: (KnownNat m) => CVVec m -> Matrix m m CDouble
+-- vecToFunc v =
+--   generateMat (\f f' -> if f == f' then getAtMatrix f FZero v else 0)
 
-fhat :: (KnownNat n) => (CVVec n -> CDouble) -> CVVec n -> CDouble
-fhat f s =
-  (foldl' (\b a -> b + (apply a)) 0 compBasis') / (2 ** (fst $ Matrix.size s))
+-- fhat :: (KnownNat n) => (CVVec n -> CDouble) -> CVVec n -> CDouble
+-- fhat f s =
+--   (foldl' (\b a -> b + (apply a)) 0 compBasis') / (2 ** (fst $ Matrix.size s))
+--  where
+--   chi_s = chi s
+--   apply x = (f x) * chi_s x
+
+createInput :: Num a => Vector n (VVec m a) -> VVec (Exp m n) a
+createInput (VecSing v) = v
+createInput (v:+vs    ) = v .*. createInput vs
+
+fourierBasis :: (KnownNat n) => Vector n (CVVec n)
+fourierBasis = fmap chi compBasis'
+
+chi :: (KnownNat n) => CVVec n -> CVVec n
+chi s = normalise $ toVVec $ fmap (chi_f s) compBasis'
+
+fhat_f :: (KnownNat n) => CVVec n -> CVVec n -> CDouble
+fhat_f = Quantum.innerProduct
+
+fhat :: (KnownNat n) => CVVec n -> CVVec n
+fhat f = toVVec $ fmap (fhat_f f) fourierBasis
+
+normalise :: (KnownNat n) => CVVec n -> CVVec n
+normalise v = v ^/ sqrt (sum $ fmap (abs) v)
+
+groverDiffusion
+  :: forall i a
+   . (KnownNat (Exp Two i), KnownNat i, i ~ GetExp Two i, Floating a)
+  => Matrix (Exp Two i) (Exp Two i) a
+groverDiffusion =
+  tensorPower hadamard *.* generateMat f *.* tensorPower hadamard
  where
-  chi_s = chi s
-  apply x = (f x) * chi_s x
+  f a b | a == b && a == FZero = 1
+        | a == b               = -1
+        | otherwise            = 0
+
+-- fhat :: (KnownNat n) => CVVec n -> CVVec n -> CDouble
+-- fhat f s
