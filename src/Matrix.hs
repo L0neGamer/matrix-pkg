@@ -1,6 +1,6 @@
 module Matrix where
 
-import Control.Applicative (Applicative (liftA2, pure, (<*>)))
+import Control.Applicative (Applicative (liftA2))
 import Data.AdditiveGroup (AdditiveGroup (negateV, zeroV, (^+^)))
 import Data.Foldable (find, foldl', toList)
 import qualified Data.Set as S
@@ -30,7 +30,7 @@ instance Functor (Matrix n m) where
 -- fold over the matrix row by row
 instance Foldable (Matrix n m) where
   foldr f z (Mat (VecSing vs)) = foldr f z vs
-  foldr f z (Mat (v :+ vs)) = (foldr f (foldr f z (Mat vs)) v)
+  foldr f z (Mat (v :+ vs)) = foldr f (foldr f z (Mat vs)) v
 
 -- pure it just an appropriately sized matrix filled with
 instance (KnownNat n, KnownNat m) => Applicative (Matrix n m) where
@@ -107,8 +107,7 @@ consFrom f (a :+ as) bs = fmap (f a) bs >: consFrom f as bs
 matReplaceElems :: [[a]] -> Matrix n m a -> Matrix n m a
 matReplaceElems [] m = m
 matReplaceElems (a : _) (Mat (VecSing v)) = Mat $ VecSing (vecReplaceElems a v)
-matReplaceElems (a : as) (Mat (v :+ vs)) =
-  (vecReplaceElems a v) >: matReplaceElems as (Mat vs)
+matReplaceElems (a : as) (Mat (v :+ vs)) = vecReplaceElems a v >: matReplaceElems as (Mat vs)
 
 matFromListWithDefault :: (KnownNat n, KnownNat m) => a -> [[a]] -> Matrix n m a
 matFromListWithDefault a as = matReplaceElems as (generateMat (\_ _ -> a))
@@ -136,7 +135,7 @@ showMatrix m = '[' : concat items'' ++ "\n]"
                 (\fin str -> padList ' ' (index fin maxCols - length str) str ++ ", ")
           )
           vs
-    items' = map (("\n [" ++) . init . init . foldr (++) "") showedM'
+    items' = map (("\n [" ++) . init . init . concat) showedM'
     items'' = map (++ "],") (init items') ++ [last items' ++ "]"]
 
 -- convenience function for printing a matrix
@@ -285,7 +284,7 @@ multiplyMat (Mat (v :+ vs)) b =
 -- creates a checkerboard of negatives and positives
 checkerboard :: Num a => Matrix n m a -> Matrix n m a
 checkerboard (Mat vs) =
-  Mat $ fmap (applyToRest negate) $ applyToRest (fmap negate) vs
+  Mat $ applyToRest negate <$> applyToRest (fmap negate) vs
 
 -- generate a matrix where each element is the determinant
 -- of the submatrices not including that row and column
@@ -293,7 +292,7 @@ matrixOfMinors ::
   forall a n. (Num a, KnownNat n) => Matrix n n a -> Matrix n n a
 matrixOfMinors m = case natSing @n of
   OneS -> Mat $ (VecSing . VecSing . det) m
-  SuccS _ -> fmap det $ generateMat (\i j -> subMatrix i j m)
+  SuccS _ -> det <$> generateMat (\i j -> subMatrix i j m)
 
 -- -- thanks to https://www.mathsisfun.com/algebra/matrix-inverse-minors-cofactors-adjugate.html
 inverseMatrix ::
@@ -327,23 +326,23 @@ infixl 7 *.*
 
 -- find the dot product between two vector matrices
 dotProd :: Num a => Matrix n One a -> Matrix n One a -> a
-dotProd m n = (getCol FZero m) <.> (getCol FZero n)
+dotProd m n = getCol FZero m <.> getCol FZero n
 
 -- given a vector of matrices, stick them together as if they were
 -- horizontal, ie column wise
 concatMatricesCol :: Vector n (Matrix i j a) -> Matrix i (Mul n j) a
 concatMatricesCol (VecSing m) = m
-concatMatricesCol (m :+ ms) = m `concatCols` (concatMatricesCol ms)
+concatMatricesCol (m :+ ms) = m `concatCols` concatMatricesCol ms
 
 -- given a vector of matrices, stick them together as if they were
 -- vertical, ie row wise
 concatMatricesRow :: Vector n (Matrix i j a) -> Matrix (Mul n i) j a
 concatMatricesRow (VecSing m) = m
-concatMatricesRow (m :+ ms) = m `concatRows` (concatMatricesRow ms)
+concatMatricesRow (m :+ ms) = m `concatRows` concatMatricesRow ms
 
 -- given a matrix filled with matrices, flatten it
 expandNested :: Matrix n m (Matrix i j a) -> Matrix (Mul n i) (Mul m j) a
 expandNested (Mat v) = concatMatricesRow $ fmap concatMatricesCol v
 
 toVVec :: Vector n a -> VVec n a
-toVVec = Mat . fmap (VecSing)
+toVVec = Mat . fmap VecSing

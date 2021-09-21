@@ -1,12 +1,7 @@
 module Vector where
 
-import Control.Applicative (Applicative (pure, (<*>)), (<$>))
 import Data.AdditiveGroup (AdditiveGroup (negateV, zeroV, (^+^)))
-import Data.VectorSpace
-  ( AdditiveGroup (negateV, zeroV, (^+^)),
-    InnerSpace (..),
-    VectorSpace (..),
-  )
+import Data.VectorSpace (InnerSpace (..), VectorSpace (..))
 import Lib
 import Prelude hiding (reverse, zipWith)
 
@@ -169,7 +164,7 @@ index (FSucc i) (_ :+ vs) = index i vs
 -- zip two vectors together with the index of the item zipping with
 zipWithFin :: (Fin n -> a -> b -> c) -> Vector n a -> Vector n b -> Vector n c
 zipWithFin f (VecSing a) (VecSing b) = VecSing (f FZero a b)
-zipWithFin f (a :+ as) (b :+ bs) = (f FZero a b) :+ zipWithFin (f . FSucc) as bs
+zipWithFin f (a :+ as) (b :+ bs) = f FZero a b :+ zipWithFin (f . FSucc) as bs
 
 -- map over a given vector with the index
 mapWithFin :: (Fin n -> a -> b) -> Vector n a -> Vector n b

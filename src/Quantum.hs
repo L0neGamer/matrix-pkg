@@ -1,10 +1,9 @@
 module Quantum where
 
-import Data.AdditiveGroup
-import Data.Complex hiding ((:+))
+import Data.AdditiveGroup (AdditiveGroup ((^+^), (^-^)))
+import Data.Complex (Complex, conjugate, magnitude)
 import qualified Data.Complex as C (Complex ((:+)))
-import Data.Foldable (foldl')
-import Data.VectorSpace hiding (magnitude)
+import Data.VectorSpace (VectorSpace ((*^)), (^/))
 import Lib
 import Matrix
 import Vector
@@ -189,8 +188,8 @@ calcProbability :: Matrix m m CDouble -> CVVec m -> CDouble
 calcProbability densityMatrix base =
   getVal $ conjTrans base *.* densityMatrix *.* base
 
-chi_f :: CVVec m -> CVVec m -> CDouble
-chi_f s x = (-1) ** Quantum.innerProduct s x
+chiF :: CVVec m -> CVVec m -> CDouble
+chiF s x = (-1) ** Quantum.innerProduct s x
 
 -- vecToFunc :: (KnownNat m) => CVVec m -> Matrix m m CDouble
 -- vecToFunc v =
@@ -211,16 +210,16 @@ fourierBasis :: (KnownNat n) => Vector n (CVVec n)
 fourierBasis = fmap chi compBasis'
 
 chi :: (KnownNat n) => CVVec n -> CVVec n
-chi s = normalise $ toVVec $ fmap (chi_f s) compBasis'
+chi s = normalise $ toVVec $ fmap (chiF s) compBasis'
 
-fhat_f :: (KnownNat n) => CVVec n -> CVVec n -> CDouble
-fhat_f = Quantum.innerProduct
+fhatF :: (KnownNat n) => CVVec n -> CVVec n -> CDouble
+fhatF = Quantum.innerProduct
 
 fhat :: (KnownNat n) => CVVec n -> CVVec n
-fhat f = toVVec $ fmap (fhat_f f) fourierBasis
+fhat f = toVVec $ fmap (fhatF f) fourierBasis
 
 normalise :: (KnownNat n) => CVVec n -> CVVec n
-normalise v = v ^/ sqrt (sum $ fmap (abs) v)
+normalise v = v ^/ sqrt (sum $ fmap abs v)
 
 groverDiffusion ::
   forall i a.

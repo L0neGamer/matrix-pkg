@@ -44,6 +44,8 @@ library:
     ScopedTypeVariables
     StandaloneDeriving
     TypeInType
+  ghc-options:
+    - -Wall
 
 executables:
   matrix-pkg-exe:
