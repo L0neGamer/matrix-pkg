@@ -1,9 +1,9 @@
 module Lib where
 
-import Data.Kind
-import Prelude hiding (zipWith)
 import Data.Foldable (find, toList)
-import GHC.TypeLits (TypeError, ErrorMessage(Text, (:<>:), ShowType))
+import Data.Kind
+import GHC.TypeLits (ErrorMessage (ShowType, Text, (:<>:)), TypeError)
+import Prelude hiding (zipWith)
 
 {-
 Nat is for keeping the size of the vector in the type.
@@ -28,6 +28,7 @@ data NatS :: Nat -> Type where
   SuccS :: KnownNat n => NatS n -> NatS ('Succ n)
 
 deriving instance Show (NatS a)
+
 deriving instance Eq (NatS a)
 
 class KnownNat (n :: Nat) where
@@ -76,7 +77,7 @@ type Nine = 'Succ Eight
 
 type Ten = 'Succ Nine
 
-type family GT (n::Nat) (m::Nat) where
+type family GT (n :: Nat) (m :: Nat) where
   GT ('Succ _) 'One = 'True
   GT 'One ('Succ _) = 'False
   GT ('Succ n) ('Succ m) = GT n m
@@ -106,17 +107,18 @@ type family RLog n m x i where
 -- this is a helper type so that we can error out properly
 type family RLogBool n m x i (mx :: Bool) where
   RLogBool n m x i 'True = (RLog n m (Mul n x) ('Succ i))
-  RLogBool n m x i 'False = TypeError
-    (
-      'Text "Recursed too deep! Base (" ':<>:
-      'ShowType n ':<>:
-      'Text ") does not divide evenly into (" ':<>:
-      'ShowType m ':<>:
-      'Text ")"
+  RLogBool n m x i 'False =
+    TypeError
+      ( 'Text "Recursed too deep! Base ("
+          ':<>: 'ShowType n
+          ':<>: 'Text ") does not divide evenly into ("
+          ':<>: 'ShowType m
+          ':<>: 'Text ")"
       )
 
 -- wrapping some stuff up in syntactic sugar
 type ReverseLog n m = RLog n m n 'One
+
 -- the thing we wanna constrain on
 type GetExp n i = ReverseLog n (Exp n i)
 
@@ -125,11 +127,11 @@ instance (KnownNat n) => Bounded (Fin n) where
   minBound = FZero
   maxBound =
     case natSing @n of
-      OneS    -> FZero
+      OneS -> FZero
       SuccS _ -> FSucc maxBound
 
 -- converting to and from Ints for Fins
--- a bit unsafe, but that's fine, since it's 
+-- a bit unsafe, but that's fine, since it's
 -- supposed to be
 instance (KnownNat n) => Enum (Fin n) where
   fromEnum = finSize
@@ -137,36 +139,36 @@ instance (KnownNat n) => Enum (Fin n) where
   toEnum n
     | n > 1 =
       case natSing @n of
-        OneS    -> err
+        OneS -> err
         SuccS _ -> FSucc (toEnum (n - 1))
     | otherwise = err
     where
       err = error $ "bad Int for toEnum in Finn: " ++ show n
 
--- define my own type class for operators between two 
+-- define my own type class for operators between two
 -- types
 class LinearData v where
-  (^*^) :: Num a => (v a) -> (v a) -> (v a)
+  (^*^) :: Num a => v a -> v a -> v a
   (^*^) = zipWith (*)
-  zipWith :: (a -> b -> c) -> (v a) -> (v b) -> (v c)
+  zipWith :: (a -> b -> c) -> v a -> v b -> v c
 
 -- get the numerical representation of a Fin
 finSize :: Num a => Fin n -> a
-finSize FZero     = 1
+finSize FZero = 1
 finSize (FSucc f) = 1 + finSize f
 
--- create a list of Fins equal to the size of the type in 
+-- create a list of Fins equal to the size of the type in
 -- ascending order
-fins :: forall n . KnownNat n => [Fin n]
+fins :: forall n. KnownNat n => [Fin n]
 fins = map toEnum $ take (fromEnum (maxBound :: Fin n)) [1, 2 ..]
 
 -- get an ascending list of Fins greater than the given Fin
-finFrom :: forall n . KnownNat n => Fin n -> [Fin n]
+finFrom :: forall n. KnownNat n => Fin n -> [Fin n]
 finFrom from = dropWhile (< from) fins
 
 -- convert a NatS into a number
 natSSize :: Num a => NatS n -> a
-natSSize OneS      = 1
+natSSize OneS = 1
 natSSize (SuccS s) = 1 + natSSize s
 
 -- thank you to dixonary at https://discord.com/channels/189453139584221185/231852430701232128/806896486860324894
@@ -179,9 +181,9 @@ cantorPairing a b = div ((a + b) * (a + b + 1)) 2 + b
 
 inverseCantorPairing :: Integral a => a -> (a, a)
 inverseCantorPairing a = (w - a + t, a - t)
- where
-  w = floor (sqrt (8 * fromIntegral a + 1) - 1 / 2 :: Double)
-  t = div (w ^ (2 :: Int) + w) 2
+  where
+    w = floor (sqrt (8 * fromIntegral a + 1) - 1 / 2 :: Double)
+    t = div (w ^ (2 :: Int) + w) 2
 
 padList :: a -> Int -> [a] -> [a]
 padList a i as = replicate i a ++ as
