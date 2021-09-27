@@ -5,18 +5,12 @@ import Data.VectorSpace (InnerSpace (..), VectorSpace (..))
 import Lib
   ( Add,
     Fin (..),
-    Five,
-    Four,
-    IsDivisibleBy,
     KnownNat (..),
     LinearData (..),
     Mul,
-    Nat (One, Succ),
+    Nat (Succ),
     NatS (OneS, SuccS),
-    One,
-    Six,
-    Three,
-    Two,
+    One, Two, Three,
     finSize,
   )
 import Prelude hiding (reverse, zipWith)
@@ -253,17 +247,17 @@ splitVec v = case natSing @n of
         (frst, rst) = vecSplit' v' :: (Vector j b, Vector (Mul i j) b)
         recr = splitVec rst
 
-everyOther :: forall n a. (KnownNat n) => Vector (Mul Two n) a -> Vector Two (Vector n a)
-everyOther v = case natSing @n of
-  OneS -> firstCase v
-  SuccS _ -> secondCase v
-  where
-    firstCase :: Vector Two a -> Vector Two (Vector One a)
-    firstCase (a :+ (VecSing b)) = singleton a :+ singleton (singleton b)
-    secondCase :: forall m b. (KnownNat ('Succ m), KnownNat m, Add Two (Mul Two m) ~ Mul Two ('Succ m)) => Vector (Mul Two ('Succ m)) b -> Vector Two (Vector ('Succ m) b)
-    secondCase (a :+ b :+ vs) = (a :+ frst) :+ VecSing (b :+ scnd)
-      where
-        (frst :+ VecSing scnd) = everyOther (vs :: Vector (Mul Two m) b)
+-- everyOther :: forall n a. (KnownNat n) => Vector (Mul Two n) a -> Vector Two (Vector n a)
+-- everyOther v = case natSing @n of
+--   OneS -> firstCase v
+--   SuccS _ -> secondCase v
+--   where
+--     firstCase :: Vector Two a -> Vector Two (Vector One a)
+--     firstCase (a :+ (VecSing b)) = singleton a :+ singleton (singleton b)
+--     secondCase :: forall m b. (KnownNat ('Succ m), KnownNat m, Add Two (Mul Two m) ~ Mul Two ('Succ m)) => Vector (Mul Two ('Succ m)) b -> Vector Two (Vector ('Succ m) b)
+--     secondCase (a :+ b :+ vs) = (a :+ frst) :+ VecSing (b :+ scnd)
+--       where
+--         (frst :+ VecSing scnd) = everyOther (vs :: Vector (Mul Two m) b)
 
 -- halfSliceVec :: forall n a. (KnownNat n) => Fin n -> Vector (Mul Two n) a -> Vector Two (Vector n a)
 -- halfSliceVec = undefined
