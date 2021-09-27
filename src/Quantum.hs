@@ -82,7 +82,7 @@ rotation n = numMatFromList [[c, - s], [s, c]]
     s = sin n
 
 cnot :: Num a => Matrix Four Four a
-cnot = numMatFromList [[1, 0, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]]
+cnot = numMatFromList [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]]
 
 cnot' :: Num a => Matrix Four Four a
 cnot' = numMatFromList [[1, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0], [0, 1, 0, 0]]
