@@ -82,6 +82,33 @@ type family GT (n :: Nat) (m :: Nat) where
   GT 'One ('Succ _) = 'False
   GT ('Succ n) ('Succ m) = GT n m
 
+type family EQ (n :: Nat) (m :: Nat) where
+  EQ 'One 'One = 'True
+  EQ ('Succ _) 'One = 'False
+  EQ 'One ('Succ _) = 'False
+  EQ ('Succ n) ('Succ m) = EQ n m
+
+type family Or (n :: Bool) (m :: Bool) where
+  Or 'True _ = 'True
+  Or _ 'True = 'True
+  Or _ _ = 'False
+
+type family And (n :: Bool) (m :: Bool) where
+  And 'True 'True = 'True
+  And _ _ = 'False
+
+type family Not (n :: Bool) where
+  Not 'True = 'False
+  Not 'False = 'True
+
+type family IsEven (n :: Nat) where
+  IsEven ('Succ 'One) = 'True
+  IsEven ('Succ ('Succ s)) = IsEven s
+  IsEven 'One = 'False
+
+type family GTE (n :: Nat) (m :: Nat) where
+  GTE n m = Or (GT n m) (EQ n m)
+
 --  look at https://wiki.haskell.org/Type_arithmetic
 -- http://archive.fo/JwMNI
 type family Add n m where
@@ -121,6 +148,24 @@ type ReverseLog n m = RLog n m n 'One
 
 -- the thing we wanna constrain on
 type GetExp n i = ReverseLog n (Exp n i)
+
+type family Sub (n :: Nat) (m :: Nat) where
+  Sub 'One 'One = TypeError ('Text "Cannot subtract equal numbers!")
+  Sub 'One ('Succ _) = TypeError ('Text "Cannot subtract a larger number from a smaller number!")
+  Sub ('Succ s) 'One = s
+  Sub ('Succ s) ('Succ s') = Sub s s'
+
+type family IsDivisibleBy (n :: Nat) (m :: Nat) where
+  IsDivisibleBy _ 'One = 'True
+  IsDivisibleBy n m =
+    IfElse
+      (EQ n m)
+      'True
+      (IfElse (GT n m) (IsDivisibleBy (Sub n m) m) 'False)
+
+type family IfElse (b :: Bool) n m where
+  IfElse 'True n _ = n
+  IfElse 'False _ m = m
 
 -- ways to generate minimums and maximums of Fins
 instance (KnownNat n) => Bounded (Fin n) where
