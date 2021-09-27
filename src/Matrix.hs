@@ -203,7 +203,7 @@ trace m@(Mat ((a :+ _) :+ _)) = a + trace (subMatrix FZero FZero m)
 -- below are operations on matrices
 -- transpose a nxm matrix to an mxn matrix
 transpose :: Matrix n m a -> Matrix m n a
-transpose = Mat . Vector.transpose . getVec
+transpose = Mat . Vector.vTranspose . getVec
 
 -- TODO: work out what this does
 -- compared to original code, this doesn't take into account errors with floating point numbers
@@ -346,3 +346,9 @@ expandNested (Mat v) = concatMatricesRow $ fmap concatMatricesCol v
 
 toVVec :: Vector n a -> VVec n a
 toVVec = Mat . fmap VecSing
+
+vec :: Matrix n m a -> VVec (Mul m n) a
+vec = transpose . Mat . VecSing . extendVector . getVec . transpose
+
+unvec :: (KnownNat n, KnownNat m) => VVec (Mul m n) a -> Matrix n m a
+unvec = transpose . Mat . splitVec . vecHead . getVec . transpose
