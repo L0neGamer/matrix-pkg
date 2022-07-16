@@ -10,7 +10,8 @@ import Lib
     Mul,
     Nat (Succ),
     NatS (OneS, SuccS),
-    One, Two, Three,
+    One,
+    Three,
     finSize,
   )
 import Prelude hiding (reverse, zipWith)

@@ -1,9 +1,9 @@
 module Quantum where
 
 import Data.AdditiveGroup (AdditiveGroup ((^+^), (^-^)))
-import Data.Complex (Complex, conjugate, magnitude)
-import qualified Data.Complex as C (Complex ((:+)))
-import Data.VectorSpace (VectorSpace ((*^)), (^/))
+import Data.Complex (Complex, conjugate)
+import qualified Data.Complex as C
+import Data.VectorSpace (VectorSpace ((*^)), (^/), magnitude)
 import Lib
 import Matrix
 import Vector
@@ -161,12 +161,12 @@ transformBasis m = fmap (m *.*) compBasis'
 -- measure in a given basis, returning probabilities for each
 -- basis vector
 measureIn :: CVVec m -> Vector n (CVVec m) -> Vector n Double
-measureIn v = fmap ((** 2) . magnitude . Quantum.innerProduct v)
+measureIn v = fmap ((** 2) . C.magnitude . Quantum.innerProduct v)
 
--- measure in the computational basis, returning probabilities
+-- measure in the general computational basis, returning probabilities
 -- for each basis vector
-measure :: Qubit -> Vector Two Double
-measure v = measureIn v compBasis
+measure :: KnownNat n => CVVec n -> Vector n Double
+measure v = measureIn v compBasis'
 
 -- given a list of vector-probability pairs, return Just the density matrix
 --  if the probabilities sum up to 1; else return Nothing
@@ -190,6 +190,13 @@ calcProbability densityMatrix base =
 
 chiF :: CVVec m -> CVVec m -> CDouble
 chiF s x = (-1) ** Quantum.innerProduct s x
+
+-- funcToMatrix :: KnownNat n => (Fin n -> Vector n CDouble) -> Maybe (Matrix n n CDouble)
+-- funcToMatrix f = let m = Mat $ generateVec f
+--                      iden' = fmap (round . magnitude) (m *.* fmap conjugate (transpose m))
+--                   in if iden' == identity @Integer
+--                        then Just m
+--                        else Nothing
 
 -- vecToFunc :: (KnownNat m) => CVVec m -> Matrix m m CDouble
 -- vecToFunc v =
@@ -219,7 +226,8 @@ fhat :: (KnownNat n) => CVVec n -> CVVec n
 fhat f = toVVec $ fmap (fhatF f) fourierBasis
 
 normalise :: (KnownNat n) => CVVec n -> CVVec n
-normalise v = v ^/ sqrt (sum $ fmap abs v)
+normalise v = v ^/ (sqrt (sum $ fmap (square . C.magnitude) v) C.:+ 0)
+  where square x = x * x
 
 groverDiffusion ::
   forall i a.
@@ -232,6 +240,3 @@ groverDiffusion =
       | a == b && a == FZero = 1
       | a == b = -1
       | otherwise = 0
-
--- fhat :: (KnownNat n) => CVVec n -> CVVec n -> CDouble
--- fhat f s
