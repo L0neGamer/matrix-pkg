@@ -2,6 +2,7 @@ module Lib where
 
 import Data.Foldable (find, toList)
 import Data.Kind
+import Data.Proxy
 import GHC.TypeLits (ErrorMessage (ShowType, Text, (:<>:)), TypeError)
 import Prelude hiding (zipWith)
 
@@ -20,7 +21,18 @@ So the above definitions show that a Nat is a plain type; it takes no arguments
 data Nat
   = One
   | Succ Nat
-  deriving (Show, Eq)
+  deriving (Eq)
+
+instance Show Nat where
+  show n = "natFromNum " ++ show (natToNum @Integer n)
+
+natToNum :: Num a => Nat -> a
+natToNum One = 1
+natToNum (Succ n) = 1 + natToNum n
+
+natFromNum :: (Num a, Eq a) => a -> Nat
+natFromNum 0 = One
+natFromNum n = Succ (natFromNum (n - 1))
 
 -- Following are KnownNats, which help with automatic construction of things
 data NatS :: Nat -> Type where
@@ -39,6 +51,13 @@ instance KnownNat 'One where
 
 instance KnownNat n => KnownNat ('Succ n) where
   natSing = SuccS natSing
+
+demote :: forall n. KnownNat n => Proxy n -> Nat
+demote _ = demote' (natSing :: NatS n)
+
+demote' :: NatS n -> Nat
+demote' OneS = One
+demote' (SuccS n') = Succ (demote' n')
 
 -- Fin is for indexing through the data structures.
 -- think of it as the "Numbers" of these structures
@@ -79,8 +98,35 @@ type Ten = 'Succ Nine
 
 type family GT (n :: Nat) (m :: Nat) where
   GT ('Succ _) 'One = 'True
-  GT 'One ('Succ _) = 'False
+  GT 'One _ = 'False
   GT ('Succ n) ('Succ m) = GT n m
+
+type family EQ (n :: Nat) (m :: Nat) where
+  EQ 'One 'One = 'True
+  EQ ('Succ _) 'One = 'False
+  EQ 'One ('Succ _) = 'False
+  EQ ('Succ n) ('Succ m) = EQ n m
+
+type family Or (n :: Bool) (m :: Bool) where
+  Or 'True _ = 'True
+  Or _ 'True = 'True
+  Or _ _ = 'False
+
+type family And (n :: Bool) (m :: Bool) where
+  And 'True 'True = 'True
+  And _ _ = 'False
+
+type family Not (n :: Bool) where
+  Not 'True = 'False
+  Not 'False = 'True
+
+type family IsEven (n :: Nat) where
+  IsEven ('Succ 'One) = 'True
+  IsEven ('Succ ('Succ s)) = IsEven s
+  IsEven 'One = 'False
+
+type family GTE (n :: Nat) (m :: Nat) where
+  GTE n m = Or (GT n m) (EQ n m)
 
 --  look at https://wiki.haskell.org/Type_arithmetic
 -- http://archive.fo/JwMNI
@@ -122,6 +168,24 @@ type ReverseLog n m = RLog n m n 'One
 -- the thing we wanna constrain on
 type GetExp n i = ReverseLog n (Exp n i)
 
+type family Sub (n :: Nat) (m :: Nat) where
+  Sub 'One 'One = TypeError ('Text "Cannot subtract equal numbers!")
+  Sub 'One ('Succ _) = TypeError ('Text "Cannot subtract a larger number from a smaller number!")
+  Sub ('Succ s) 'One = s
+  Sub ('Succ s) ('Succ s') = Sub s s'
+
+type family IsDivisibleBy (n :: Nat) (m :: Nat) where
+  IsDivisibleBy _ 'One = 'True
+  IsDivisibleBy n m =
+    IfElse
+      (EQ n m)
+      'True
+      (IfElse (GT n m) (IsDivisibleBy (Sub n m) m) 'False)
+
+type family IfElse (b :: Bool) n m where
+  IfElse 'True n _ = n
+  IfElse 'False _ m = m
+
 -- ways to generate minimums and maximums of Fins
 instance (KnownNat n) => Bounded (Fin n) where
   minBound = FZero
@@ -135,15 +199,18 @@ instance (KnownNat n) => Bounded (Fin n) where
 -- supposed to be
 instance (KnownNat n) => Enum (Fin n) where
   fromEnum = finSize
-  toEnum 1 = FZero
-  toEnum n
-    | n > 1 =
-      case natSing @n of
-        OneS -> err
-        SuccS _ -> FSucc (toEnum (n - 1))
-    | otherwise = err
-    where
-      err = error $ "bad Int for toEnum in Finn: " ++ show n
+  toEnum n = finFromInt n n (natSing :: NatS n)
+
+finFromInt :: forall n m. (KnownNat n, KnownNat m) => Int -> Int -> NatS m -> Fin n
+finFromInt 0 _ _ = FZero
+finFromInt n o o'
+  | n > 0 =
+    case natSing @n of
+      OneS -> err
+      SuccS _ -> FSucc (finFromInt (n - 1) o o')
+  | otherwise = err
+  where
+    err = error $ "bad Int for finFromInt for Fin (" ++ show (demote (Proxy :: Proxy m)) ++ "): " ++ show o
 
 -- define my own type class for operators between two
 -- types
@@ -154,13 +221,13 @@ class LinearData v where
 
 -- get the numerical representation of a Fin
 finSize :: Num a => Fin n -> a
-finSize FZero = 1
+finSize FZero = 0
 finSize (FSucc f) = 1 + finSize f
 
 -- create a list of Fins equal to the size of the type in
 -- ascending order
-fins :: forall n. KnownNat n => [Fin n]
-fins = map toEnum $ take (fromEnum (maxBound :: Fin n)) [1, 2 ..]
+fins :: forall n. (KnownNat n) => [Fin n]
+fins = [minBound .. maxBound]
 
 -- get an ascending list of Fins greater than the given Fin
 finFrom :: forall n. KnownNat n => Fin n -> [Fin n]

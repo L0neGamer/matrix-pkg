@@ -1,13 +1,19 @@
 module Vector where
 
-import Control.Applicative (Applicative (pure, (<*>)), (<$>))
 import Data.AdditiveGroup (AdditiveGroup (negateV, zeroV, (^+^)))
-import Data.VectorSpace
-  ( AdditiveGroup (negateV, zeroV, (^+^)),
-    InnerSpace (..),
-    VectorSpace (..),
-  )
+import Data.VectorSpace (InnerSpace (..), VectorSpace (..))
 import Lib
+  ( Add,
+    Fin (..),
+    KnownNat (..),
+    LinearData (..),
+    Mul,
+    Nat (Succ),
+    NatS (OneS, SuccS),
+    One,
+    Three,
+    finSize,
+  )
 import Prelude hiding (reverse, zipWith)
 
 -- below is a useful link for vector stuff
@@ -148,6 +154,20 @@ vecTail (_ :+ vs) = vs
 vecSplit :: Vector ('Succ n) a -> (a, Vector n a)
 vecSplit v = (vecHead v, vecTail v)
 
+-- split a vector into two components of any size (at least size one)
+vecSplit' :: forall n m a. KnownNat n => Vector (Add n m) a -> (Vector n a, Vector m a)
+vecSplit' v = case natSing @n of
+  OneS -> firstCase v
+  SuccS _ -> secondCase v
+  where
+    firstCase v' = (VecSing a, vs)
+      where
+        (a, vs) = vecSplit v'
+    secondCase :: forall i j b. KnownNat i => Vector (Add ('Succ i) j) b -> (Vector ('Succ i) b, Vector j b)
+    secondCase (a :+ vs) = (a :+ vn, vm)
+      where
+        (vn, vm) = vecSplit' vs
+
 -- drop a particular index of a vector of more than one length
 dropIndex :: Fin ('Succ n) -> Vector ('Succ n) a -> Vector n a
 dropIndex FZero (_ :+ vs) = vs
@@ -169,7 +189,7 @@ index (FSucc i) (_ :+ vs) = index i vs
 -- zip two vectors together with the index of the item zipping with
 zipWithFin :: (Fin n -> a -> b -> c) -> Vector n a -> Vector n b -> Vector n c
 zipWithFin f (VecSing a) (VecSing b) = VecSing (f FZero a b)
-zipWithFin f (a :+ as) (b :+ bs) = (f FZero a b) :+ zipWithFin (f . FSucc) as bs
+zipWithFin f (a :+ as) (b :+ bs) = f FZero a b :+ zipWithFin (f . FSucc) as bs
 
 -- map over a given vector with the index
 mapWithFin :: (Fin n -> a -> b) -> Vector n a -> Vector n b
@@ -205,14 +225,47 @@ crossProd (ax :+ (ay :+ (VecSing az))) (bx :+ (by :+ (VecSing bz))) =
 
 -- transpose nested vectors
 -- effectively doing matrix stuff, but it's useful elsewhere
-transpose :: Vector n (Vector m a) -> Vector m (Vector n a)
-transpose (VecSing a) = fmap singleton a
-transpose vs@((VecSing _) :+ _) = singleton $ fmap vecHead vs
-transpose (v@(_ :+ _) :+ vs) = zipWith (:+) v $ topRow :+ tails
+vTranspose :: Vector n (Vector m a) -> Vector m (Vector n a)
+vTranspose (VecSing a) = fmap singleton a
+vTranspose vs@((VecSing _) :+ _) = singleton $ fmap vecHead vs
+vTranspose (v@(_ :+ _) :+ vs) = zipWith (:+) v $ topRow :+ tails
   where
-    tails = transpose $ fmap vecTail vs
+    tails = vTranspose $ fmap vecTail vs
     topRow = fmap vecHead vs
 
 extendVector :: Vector n (Vector m a) -> Vector (Mul n m) a
 extendVector (VecSing v) = v
 extendVector (v :+ vs) = v +++ extendVector vs
+
+splitVec :: forall n m a. (KnownNat n, KnownNat m) => Vector (Mul n m) a -> Vector n (Vector m a)
+splitVec v = case natSing @n of
+  OneS -> VecSing v
+  SuccS _ -> secondCase v
+  where
+    secondCase :: forall i j b. (KnownNat i, KnownNat j) => Vector (Mul ('Succ i) j) b -> Vector ('Succ i) (Vector j b)
+    secondCase v' = frst :+ recr
+      where
+        (frst, rst) = vecSplit' v' :: (Vector j b, Vector (Mul i j) b)
+        recr = splitVec rst
+
+-- everyOther :: forall n a. (KnownNat n) => Vector (Mul Two n) a -> Vector Two (Vector n a)
+-- everyOther v = case natSing @n of
+--   OneS -> firstCase v
+--   SuccS _ -> secondCase v
+--   where
+--     firstCase :: Vector Two a -> Vector Two (Vector One a)
+--     firstCase (a :+ (VecSing b)) = singleton a :+ singleton (singleton b)
+--     secondCase :: forall m b. (KnownNat ('Succ m), KnownNat m, Add Two (Mul Two m) ~ Mul Two ('Succ m)) => Vector (Mul Two ('Succ m)) b -> Vector Two (Vector ('Succ m) b)
+--     secondCase (a :+ b :+ vs) = (a :+ frst) :+ VecSing (b :+ scnd)
+--       where
+--         (frst :+ VecSing scnd) = everyOther (vs :: Vector (Mul Two m) b)
+
+-- halfSliceVec :: forall n a. (KnownNat n) => Fin n -> Vector (Mul Two n) a -> Vector Two (Vector n a)
+-- halfSliceVec = undefined
+
+-- func :: NatS i -> Vector (Mul Two (Mul m i)) a -> Vector Two (Vector (Mul m i) a)
+-- func = undefined
+
+-- halfSliceVec' :: forall n a i m. NatS i -> Vector (Mul Two (Mul m i)) a -> Vector Two (Vector n a)
+-- halfSliceVec' s v = undefined
+--   where (frst :: Vector i a, frstrst) = vecSplit' v

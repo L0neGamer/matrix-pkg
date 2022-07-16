@@ -1,10 +1,9 @@
 module Quantum where
 
-import Data.AdditiveGroup
-import Data.Complex hiding ((:+))
-import qualified Data.Complex as C (Complex ((:+)))
-import Data.Foldable (foldl')
-import Data.VectorSpace hiding (magnitude)
+import Data.AdditiveGroup (AdditiveGroup ((^+^), (^-^)))
+import Data.Complex (Complex, conjugate)
+import qualified Data.Complex as C
+import Data.VectorSpace (VectorSpace ((*^)), (^/), magnitude)
 import Lib
 import Matrix
 import Vector
@@ -83,7 +82,7 @@ rotation n = numMatFromList [[c, - s], [s, c]]
     s = sin n
 
 cnot :: Num a => Matrix Four Four a
-cnot = numMatFromList [[1, 0, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]]
+cnot = numMatFromList [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]]
 
 cnot' :: Num a => Matrix Four Four a
 cnot' = numMatFromList [[1, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0], [0, 1, 0, 0]]
@@ -162,12 +161,12 @@ transformBasis m = fmap (m *.*) compBasis'
 -- measure in a given basis, returning probabilities for each
 -- basis vector
 measureIn :: CVVec m -> Vector n (CVVec m) -> Vector n Double
-measureIn v = fmap ((** 2) . magnitude . Quantum.innerProduct v)
+measureIn v = fmap ((** 2) . C.magnitude . Quantum.innerProduct v)
 
--- measure in the computational basis, returning probabilities
+-- measure in the general computational basis, returning probabilities
 -- for each basis vector
-measure :: Qubit -> Vector Two Double
-measure v = measureIn v compBasis
+measure :: KnownNat n => CVVec n -> Vector n Double
+measure v = measureIn v compBasis'
 
 -- given a list of vector-probability pairs, return Just the density matrix
 --  if the probabilities sum up to 1; else return Nothing
@@ -189,8 +188,15 @@ calcProbability :: Matrix m m CDouble -> CVVec m -> CDouble
 calcProbability densityMatrix base =
   getVal $ conjTrans base *.* densityMatrix *.* base
 
-chi_f :: CVVec m -> CVVec m -> CDouble
-chi_f s x = (-1) ** Quantum.innerProduct s x
+chiF :: CVVec m -> CVVec m -> CDouble
+chiF s x = (-1) ** Quantum.innerProduct s x
+
+-- funcToMatrix :: KnownNat n => (Fin n -> Vector n CDouble) -> Maybe (Matrix n n CDouble)
+-- funcToMatrix f = let m = Mat $ generateVec f
+--                      iden' = fmap (round . magnitude) (m *.* fmap conjugate (transpose m))
+--                   in if iden' == identity @Integer
+--                        then Just m
+--                        else Nothing
 
 -- vecToFunc :: (KnownNat m) => CVVec m -> Matrix m m CDouble
 -- vecToFunc v =
@@ -211,16 +217,17 @@ fourierBasis :: (KnownNat n) => Vector n (CVVec n)
 fourierBasis = fmap chi compBasis'
 
 chi :: (KnownNat n) => CVVec n -> CVVec n
-chi s = normalise $ toVVec $ fmap (chi_f s) compBasis'
+chi s = normalise $ toVVec $ fmap (chiF s) compBasis'
 
-fhat_f :: (KnownNat n) => CVVec n -> CVVec n -> CDouble
-fhat_f = Quantum.innerProduct
+fhatF :: (KnownNat n) => CVVec n -> CVVec n -> CDouble
+fhatF = Quantum.innerProduct
 
 fhat :: (KnownNat n) => CVVec n -> CVVec n
-fhat f = toVVec $ fmap (fhat_f f) fourierBasis
+fhat f = toVVec $ fmap (fhatF f) fourierBasis
 
 normalise :: (KnownNat n) => CVVec n -> CVVec n
-normalise v = v ^/ sqrt (sum $ fmap (abs) v)
+normalise v = v ^/ (sqrt (sum $ fmap (square . C.magnitude) v) C.:+ 0)
+  where square x = x * x
 
 groverDiffusion ::
   forall i a.
@@ -233,6 +240,3 @@ groverDiffusion =
       | a == b && a == FZero = 1
       | a == b = -1
       | otherwise = 0
-
--- fhat :: (KnownNat n) => CVVec n -> CVVec n -> CDouble
--- fhat f s
