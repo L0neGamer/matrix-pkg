@@ -2,29 +2,30 @@ module Vector where
 
 import Data.AdditiveGroup (AdditiveGroup (negateV, zeroV, (^+^)))
 import Data.VectorSpace (InnerSpace (..), VectorSpace (..))
-import Lib
-  ( Add,
-    Fin (..),
-    KnownNat (..),
-    LinearData (..),
-    Mul,
-    Nat (Succ),
-    NatS (OneS, SuccS),
-    One,
-    Three,
-    finSize,
-  )
+import Lib (LinearData(..))
+--   ( Add,
+--     Fin (..),
+--     KnownNat (..),
+--     LinearData (..),
+--     Mul,
+--     Nat (Succ),
+--     NatS (OneS, SuccS),
+--     One,
+--     Three,
+--     finSize,
+--   )
 import Prelude hiding (reverse, zipWith)
+import GHC.TypeNats
+import Fin
 
 -- below is a useful link for vector stuff
 -- https://stackoverflow.com/questions/62039392/how-do-i-allow-one-constraint-to-imply-another-in-haskell/62040229#62040229
 
 -- create the vector data type
 -- the prepend operator increases the vector size by one
--- the minimum vector size is one
 data Vector (n :: Nat) a where
-  VecSing :: a -> Vector One a
-  (:+) :: a -> Vector n a -> Vector ('Succ n) a
+  VNil :: Vector 0 a
+  (:+) :: a -> Vector n a -> Vector (n + 1) a
 
 infixr 8 :+
 
@@ -32,27 +33,29 @@ deriving instance Show a => Show (Vector n a)
 
 -- we should definitely define LinearData for Vectors as it's very useful
 instance LinearData (Vector n) where
-  zipWith f (VecSing a) (VecSing b) = VecSing (f a b)
+  zipWith f VNil VNil = VNil
+  zipWith f VNil (b :+ bs) = VNil
+  zipWith f (a :+ as) VNil = VNil
   zipWith f (a :+ as) (b :+ bs) = f a b :+ zipWith f as bs
 
 instance Functor (Vector n) where
-  fmap f (VecSing a) = VecSing (f a)
+  fmap f VNil = VNil
   fmap f (a :+ vs) = f a :+ fmap f vs
 
 instance Foldable (Vector n) where
-  foldr f z (VecSing a) = a `f` z
+  foldr f z VNil = z
   foldr f z (a :+ vs) = a `f` foldr f z vs
 
 instance Eq a => Eq (Vector n a) where
   v1 == v2 = and $ zipWith (==) v1 v2
 
 instance Traversable (Vector n) where
-  traverse f (VecSing a) = VecSing <$> f a
+  traverse f VNil = VNil
   traverse f (a :+ vs) = (:+) <$> f a <*> traverse f vs
 
 -- we can say that ordering is a thing we can do
 instance Ord a => Ord (Vector n a) where
-  (VecSing a) <= (VecSing b) = a <= b
+  VNil <= VNil = True
   (a :+ as) <= (b :+ bs)
     | a < b = True
     | a > b = False
@@ -67,8 +70,8 @@ instance KnownNat n => Applicative (Vector n) where
 instance KnownNat n => Monad (Vector n) where
   (>>=) =
     case natSing @n of
-      OneS -> \(VecSing a) f -> f a
-      SuccS _ -> \(a :+ as) f -> vecHead (f a) :+ (as >>= (vecTail . f))
+      1 -> \VNil f -> f a
+      _ -> \(a :+ as) f -> vecHead (f a) :+ (as >>= (vecTail . f))
 
 -- useful type class, may as well define it
 instance (Num a, KnownNat n) => AdditiveGroup (Vector n a) where
@@ -96,25 +99,21 @@ instance (Semigroup a) => Semigroup (Vector n a) where
 instance (Monoid a, KnownNat n) => Monoid (Vector n a) where
   mempty = pure mempty
 
--- given a functions that takes Fins and returns `a`s, create a vector
+-- given a functions that takes Nats and returns `a`s, create a vector
 -- of the required length where each element of the vector is created
 -- from the given function
 generateVec :: forall a n. KnownNat n => (Fin n -> a) -> Vector n a
 generateVec f = case natSing @n of
-  OneS -> VecSing (f FZero)
-  SuccS _ -> f FZero :+ generateVec (f . FSucc)
+  1 -> VecSing (f 0)
+  _ -> f 0 :+ generateVec (f . (+ 1))
 
 vecReplaceElems :: [a] -> Vector n a -> Vector n a
 vecReplaceElems [] v = v
-vecReplaceElems (a : _) (VecSing _) = VecSing a
+vecReplaceElems (a : _) VNil = VecSing a
 vecReplaceElems (a : as) (_ :+ vs) = a :+ vecReplaceElems as vs
 
 vecFromListWithDefault :: (KnownNat n) => a -> [a] -> Vector n a
 vecFromListWithDefault a as = vecReplaceElems as (generateVec (const a))
-
--- get the size of a given vector as a Fin
-sizeAsFin :: KnownNat n => Vector n a -> Fin n
-sizeAsFin _ = maxBound
 
 -- get the size of a given vector as a number
 size :: (KnownNat n, Num b) => Vector n a -> b
@@ -123,73 +122,71 @@ size = finSize . sizeAsFin
 -- given a vector, reverses it. Pretty inefficient, but this
 -- a weird thing to do anyway
 reverse :: Vector n a -> Vector n a
-reverse v@(VecSing _) = v
+reverse VNil = VNil
 reverse (a :+ as) = appendVal a (reverse as)
 
 -- for unified construction
-singleton :: a -> Vector One a
+singleton :: a -> Vector 1 a
 singleton = VecSing
 
 -- adds an item to the end of a vector
-appendVal :: a -> Vector n a -> Vector ('Succ n) a
-appendVal a (VecSing b) = b :+ singleton a
+appendVal :: a -> Vector n a -> Vector (1 + n) a
+appendVal a VNil = b :+ singleton a
 appendVal a (b :+ bs) = b :+ appendVal a bs
 
 -- adds a vector to the end of a vector
-(+++) :: Vector n a -> Vector m a -> Vector (Add n m) a
-(VecSing a) +++ vs = a :+ vs
+(+++) :: Vector n a -> Vector m a -> Vector (n + m) a
+VNil +++ vs = vs
+vs +++ VNil = VNil
 (a :+ rest) +++ vs = a :+ rest +++ vs
 
 -- get the head of a vector
-vecHead :: Vector n a -> a
-vecHead (VecSing a) = a
+vecHead :: Vector (n + 1) a -> a
 vecHead (a :+ _) = a
 
 -- get the tail of the vector
--- only works if the vector is more than one length
-vecTail :: Vector ('Succ n) a -> Vector n a
+vecTail :: Vector (1 + n) a -> Vector n a
 vecTail (_ :+ vs) = vs
 
 -- get the head and tail of a vector
-vecSplit :: Vector ('Succ n) a -> (a, Vector n a)
+vecSplit :: Vector (1 + n) a -> (a, Vector n a)
 vecSplit v = (vecHead v, vecTail v)
 
 -- split a vector into two components of any size (at least size one)
-vecSplit' :: forall n m a. KnownNat n => Vector (Add n m) a -> (Vector n a, Vector m a)
+vecSplit' :: forall n m a. KnownNat n => Vector (n + m) a -> (Vector n a, Vector m a)
 vecSplit' v = case natSing @n of
-  OneS -> firstCase v
-  SuccS _ -> secondCase v
+  1 -> firstCase v
+  _ -> secondCase v
   where
     firstCase v' = (VecSing a, vs)
       where
         (a, vs) = vecSplit v'
-    secondCase :: forall i j b. KnownNat i => Vector (Add ('Succ i) j) b -> (Vector ('Succ i) b, Vector j b)
+    secondCase :: forall i j b. KnownNat i => Vector ((1 + i) + j) b -> (Vector (1 + i) b, Vector j b)
     secondCase (a :+ vs) = (a :+ vn, vm)
       where
         (vn, vm) = vecSplit' vs
 
 -- drop a particular index of a vector of more than one length
-dropIndex :: Fin ('Succ n) -> Vector ('Succ n) a -> Vector n a
+dropIndex :: Fin (1 + n) -> Vector (1 + n) a -> Vector n a
 dropIndex FZero (_ :+ vs) = vs
-dropIndex (FSucc FZero) (b :+ (VecSing _)) = VecSing b
-dropIndex (FSucc fin) (b :+ vs@(_ :+ _)) = b :+ dropIndex fin vs
+dropIndex fin (b :+ vs@(_ :+ _)) = b :+ dropIndex (reduceFin fin) vs
 
 -- replace a given item of the vector with the input item
-replace :: Fin n -> a -> Vector n a -> Vector n a
-replace FZero a (VecSing _) = VecSing a
-replace FZero a (_ :+ vs) = a :+ vs
-replace (FSucc FZero) a (b :+ (VecSing _)) = b :+ VecSing a
-replace (FSucc fin) a (b :+ vs) = b :+ replace fin a vs
+-- replace :: Fin n -> a -> Vector n a -> Vector n a
+-- replace 0 a (VecSing _) = VecSing a
+-- replace 0 a (_ :+ vs) = a :+ vs
+-- replace 1 a (b :+ (VecSing _)) = b :+ VecSing a
+-- replace i a (b :+ vs) = b :+ replace (i - 1) a vs
 
 -- get the item at a given index
 index :: Fin n -> Vector n a -> a
-index FZero vs = vecHead vs
-index (FSucc i) (_ :+ vs) = index i vs
+index 0 vs = vecHead vs
+index i (_ :+ vs) = index (i - 1) vs
 
 -- zip two vectors together with the index of the item zipping with
-zipWithFin :: (Fin n -> a -> b -> c) -> Vector n a -> Vector n b -> Vector n c
-zipWithFin f (VecSing a) (VecSing b) = VecSing (f FZero a b)
-zipWithFin f (a :+ as) (b :+ bs) = f FZero a b :+ zipWithFin (f . FSucc) as bs
+-- zipWithFin :: (Fin n -> a -> b -> c) -> Vector n a -> Vector n b -> Vector n c
+-- zipWithFin f (VecSing a) (VecSing b) = VecSing (f FZero a b)
+-- zipWithFin f (a :+ as) (b :+ bs) = f FZero a b :+ zipWithFin (f . FSucc) as bs
 
 -- map over a given vector with the index
 mapWithFin :: (Fin n -> a -> b) -> Vector n a -> Vector n b
@@ -214,38 +211,38 @@ applyWhen threshold comp f f' val
 -- apply a function to every element of the vector except the first,
 --  then call this function again on the rest of the vector
 applyToRest :: (a -> a) -> Vector n a -> Vector n a
-applyToRest _ (VecSing a) = VecSing a
+applyToRest _ VNil = VNil
 applyToRest f (a :+ as) = a :+ applyToRest f (fmap f as)
 
 -- find the cross product between two three dimensional vectors
 -- cheats by just applying the addition as opposed to any other thing
-crossProd :: Num a => Vector Three a -> Vector Three a -> Vector Three a
-crossProd (ax :+ (ay :+ (VecSing az))) (bx :+ (by :+ (VecSing bz))) =
-  (ay * bz - az * by) :+ ((az * bx - ax * bz) :+ VecSing (ax * by - ay * bx))
+-- crossProd :: Num a => Vector 3 a -> Vector 3 a -> Vector 3 a
+-- crossProd (ax :+ (ay :+ (VecSing az))) (bx :+ (by :+ (VecSing bz))) =
+--   (ay * bz - az * by) :+ ((az * bx - ax * bz) :+ VecSing (ax * by - ay * bx))
 
--- transpose nested vectors
--- effectively doing matrix stuff, but it's useful elsewhere
-vTranspose :: Vector n (Vector m a) -> Vector m (Vector n a)
-vTranspose (VecSing a) = fmap singleton a
-vTranspose vs@((VecSing _) :+ _) = singleton $ fmap vecHead vs
-vTranspose (v@(_ :+ _) :+ vs) = zipWith (:+) v $ topRow :+ tails
-  where
-    tails = vTranspose $ fmap vecTail vs
-    topRow = fmap vecHead vs
+-- -- transpose nested vectors
+-- -- effectively doing matrix stuff, but it's useful elsewhere
+-- vTranspose :: Vector n (Vector m a) -> Vector m (Vector n a)
+-- vTranspose (VecSing a) = fmap singleton a
+-- vTranspose vs@((VecSing _) :+ _) = singleton $ fmap vecHead vs
+-- vTranspose (v@(_ :+ _) :+ vs) = zipWith (:+) v $ topRow :+ tails
+--   where
+--     tails = vTranspose $ fmap vecTail vs
+--     topRow = fmap vecHead vs
 
-extendVector :: Vector n (Vector m a) -> Vector (Mul n m) a
-extendVector (VecSing v) = v
+extendVector :: Vector n (Vector m a) -> Vector (n GHC.TypeNats.* m) a
+extendVector VNil = VNil
 extendVector (v :+ vs) = v +++ extendVector vs
 
-splitVec :: forall n m a. (KnownNat n, KnownNat m) => Vector (Mul n m) a -> Vector n (Vector m a)
+splitVec :: forall n m o a. Vector (n GHC.TypeNats.* m) a -> Vector n (Vector m a)
 splitVec v = case natSing @n of
-  OneS -> VecSing v
-  SuccS _ -> secondCase v
+  1 -> VecSing v
+  _ -> secondCase v
   where
-    secondCase :: forall i j b. (KnownNat i, KnownNat j) => Vector (Mul ('Succ i) j) b -> Vector ('Succ i) (Vector j b)
+    secondCase :: forall i j b. (KnownNat i, KnownNat j) => Vector ((1 + i) GHC.TypeNats.* j) b -> Vector (1 + i) (Vector j b)
     secondCase v' = frst :+ recr
       where
-        (frst, rst) = vecSplit' v' :: (Vector j b, Vector (Mul i j) b)
+        (frst, rst) = vecSplit' v' :: (Vector j b, Vector (i GHC.TypeNats.* j) b)
         recr = splitVec rst
 
 -- everyOther :: forall n a. (KnownNat n) => Vector (Mul Two n) a -> Vector Two (Vector n a)
